@@ -34,8 +34,8 @@ class DeepMatting(nn.Module):
         self.bn52 = nn.BatchNorm2d(512, momentum= batchNorm_momentum)
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         self.bn53 = nn.BatchNorm2d(512, momentum= batchNorm_momentum)
-        #self.conv6_1 = nn.Conv2d(512, 4096, kernel_size=7, padding=3,bias=True)
-        #self.bn61 = nn.BatchNorm2d(4096, momentum= batchNorm_momentum)
+        self.conv6_1 = nn.Conv2d(512, 512, kernel_size=1, padding=0,bias=True)
+        self.bn61 = nn.BatchNorm2d(512, momentum= batchNorm_momentum)
         
         self.deconv6_1 = nn.Conv2d(512, 512, kernel_size=1,bias=True)
         self.bn61d = nn.BatchNorm2d(512, momentum= batchNorm_momentum)
@@ -86,7 +86,7 @@ class DeepMatting(nn.Module):
         x5p, id5 = F.max_pool2d(x53,kernel_size=(2,2), stride=(2,2),return_indices=True)
 
         # Stage 6
-        #x61 = F.relu(self.bn61(self.conv6_1(x5p)))
+        x61 = F.relu(self.bn61(self.conv6_1(x5p)))
 
         # Stage 6d
         x61d = F.relu(self.bn61d(self.deconv6_1(x5p)))

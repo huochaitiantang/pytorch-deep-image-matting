@@ -17,6 +17,8 @@ def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Super Res Example')
     parser.add_argument('--size_h', type=int, required=True, help="height size of input image")
     parser.add_argument('--size_w', type=int, required=True, help="width size of input image")
+    parser.add_argument('--crop_h', type=int, required=True, help="crop height size of input image")
+    parser.add_argument('--crop_w', type=int, required=True, help="crop width size of input image")
     parser.add_argument('--imgDir', type=str, required=True, help="directory of image")
     parser.add_argument('--alphaDir', type=str, required=True, help="directory of alpha")
     parser.add_argument('--fgDir', type=str, required=True, help="directory of fg")
@@ -42,7 +44,7 @@ def get_args():
 def get_dataset(args):
     train_transform = MatTransform(flip=True)
     
-    train_set = MatDataset(args.imgDir, args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, train_transform)
+    train_set = MatDataset(args.imgDir, args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
