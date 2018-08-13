@@ -1,7 +1,15 @@
 import torch
+import torchvision
 import collections
+import os
 
-x = torch.load('../model/vgg16-397923af.pth')
+HOME = os.environ['HOME']
+model_path = "{}/.torch/models/vgg16-397923af.pth".format(HOME)
+if not os.path.exists(model_path):
+    model = torchvision.models.vgg16(pretrained=True)
+assert(os.path.exists(model_path))
+
+x = torch.load(model_path)
 
 val = collections.OrderedDict()
 val['conv1_1.weight'] = torch.cat((x['features.0.weight'], torch.zeros(64, 1, 3, 3)), 1)
