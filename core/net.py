@@ -89,7 +89,7 @@ class DeepMatting(nn.Module):
         x61 = F.relu(self.bn61(self.conv6_1(x5p)))
 
         # Stage 6d
-        x61d = F.relu(self.bn61d(self.deconv6_1(x5p)))
+        x61d = F.relu(self.bn61d(self.deconv6_1(x61)))
 
         # Stage 5d
         x5d = F.max_unpool2d(x61d,id5, kernel_size=2, stride=2)

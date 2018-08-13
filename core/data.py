@@ -6,14 +6,16 @@ import numpy as np
 from torchvision import transforms
 
 def gen_trimap(alpha):
-    k_size = random.choice(range(20, 40))
+    k_size = random.choice(range(10, 20))
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_size, k_size))
     dilated = cv2.dilate(alpha, kernel)
-    eroded = cv2.erode(alpha, kernel)
+    #eroded = cv2.erode(alpha, kernel)
     trimap = np.zeros(alpha.shape)
     trimap.fill(128)
-    trimap[np.where((dilated == 255) & (eroded == 255))] = 255
-    trimap[np.where((dilated == 0) & (eroded == 0))] = 0
+    delta = 5
+    undelta = 255 - delta
+    trimap[np.where(dilated >= undelta)] = 255
+    trimap[np.where(dilated <= delta  )] = 0
     return trimap
 
 
@@ -26,10 +28,12 @@ class MatTransform(object):
 
         # random crop in the unknown region center
         target = np.where(trimap == 128)
-        rand_ind = np.random.randint(len(target[0]), size = 1)[0]
-        cropx, cropy = target[0][rand_ind], target[1][rand_ind]
-        cropx = min(max(cropx, 0), w - crop_w)
-        cropy = min(max(cropy, 0), h - crop_h)
+        cropx, cropy = 0, 0
+        if len(target[0]) > 0:
+            rand_ind = np.random.randint(len(target[0]), size = 1)[0]
+            cropx, cropy = target[0][rand_ind], target[1][rand_ind]
+            cropx = min(max(cropx, 0), w - crop_w)
+            cropy = min(max(cropy, 0), h - crop_h)
 
         img    = img   [cropy : cropy + crop_h, cropx : cropx + crop_w]
         fg     = fg    [cropy : cropy + crop_h, cropx : cropx + crop_w]
