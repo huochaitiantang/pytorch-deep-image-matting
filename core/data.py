@@ -12,10 +12,8 @@ def gen_trimap(alpha):
     #eroded = cv2.erode(alpha, kernel)
     trimap = np.zeros(alpha.shape)
     trimap.fill(128)
-    delta = 5
-    undelta = 255 - delta
-    trimap[np.where(dilated >= undelta)] = 255
-    trimap[np.where(dilated <= delta  )] = 0
+    trimap[alpha >= 255] = 255
+    trimap[dilated <= 0] = 0
     return trimap
 
 

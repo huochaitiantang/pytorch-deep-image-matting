@@ -5,7 +5,7 @@ import random
 
 def main():
     alpha_dir = '/home/liuliang/Desktop/alpha_pictures/kisspng/test/alpha'
-    sav_dir = '/home/liuliang/Desktop/alpha_pictures/kisspng/test/trimap_dilate15_delta5'
+    sav_dir = '/home/liuliang/Desktop/alpha_pictures/kisspng/test/trimap_dilate15'
     img_ids = os.listdir(alpha_dir)
     print("Images count: {}".format(len(img_ids)))
     for img_id in img_ids:
@@ -19,10 +19,8 @@ def main():
 
         trimap = np.zeros(alpha.shape)
         trimap.fill(128)
-        delta = 5
-        undelta = 255 - delta
-        trimap[np.where(dilated >= undelta)] = 255 
-        trimap[np.where(dilated <=   delta)] = 0 
+        trimap[alpha >= 255] = 255 
+        trimap[dilated <= 0] = 0 
 
         save_name = os.path.join(sav_dir, img_id)
         print("Write to {}".format(save_name))
