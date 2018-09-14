@@ -115,7 +115,21 @@ def gen_loss(img, alpha, fg, bg, trimap, pred_mattes):
 
     #print("Loss: AlphaLoss:{} CompLoss:{}".format(alpha_loss, comp_loss))
     return alpha_loss, comp_loss
+   
+
+def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
+    wi = torch.zeros(trimap.shape)
+    wi[trimap == 128] = 1.
+    t_wi = wi.cuda()
+    unknown_region_size = t_wi.sum()
+
+    # alpha diff
+    alpha = alpha / 255.
+    alpha_loss = torch.sqrt((pred_alpha - alpha)**2 + 1e-12)
+    alpha_loss = (alpha_loss * t_wi).sum() / unknown_region_size
     
+    return alpha_loss
+
 
 def train(args, model, optimizer, train_loader, epoch):
     t0 = time.time()
@@ -140,10 +154,13 @@ def train(args, model, optimizer, train_loader, epoch):
         adjust_learning_rate(args, optimizer, epoch)
         optimizer.zero_grad()
 
-        pred_mattes = model(torch.cat((img, trimap), 1))
+        pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
-        alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
-        loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+        # stage1 loss
+        #alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+        #loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+
+        loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
 
         loss.backward()
         optimizer.step()
@@ -154,7 +171,11 @@ def train(args, model, optimizer, train_loader, epoch):
             speed = (t1 - t0) / iteration
             exp_time = format_second(speed * (num_iter * (args.nEpochs - epoch + 1) - iteration))
 
-            print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
+            # stage 1
+            #print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
+            
+            # stage 2
+            print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
 
 def checkpoint(epoch, save_dir, model):
     model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)

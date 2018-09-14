@@ -53,8 +53,13 @@ class DeepMatting(nn.Module):
         self.deconv1 = nn.Conv2d(64, 1, kernel_size=5, padding=2,bias=True)
 
         # for stage2 training
-        #for p in self.parameters():
-        #    p.requires_grad=False
+        for p in self.parameters():
+            p.requires_grad=False
+        
+        self.refine_conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1, bias=True)
+        self.refine_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+        self.refine_conv3 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+        self.refine_pred = nn.Conv2d(64, 1, kernel_size=3, padding=1, bias=True)
         
     def forward(self, x):
         # Stage 1
@@ -110,7 +115,19 @@ class DeepMatting(nn.Module):
         # Stage 1d
         x1d = F.max_unpool2d(x21d, id1, kernel_size=2, stride=2)
         x12d = F.relu(self.bn11d(self.deconv1_1(x1d)))
+
+        # Should add sigmoid? github repo add so.
         x11d = F.sigmoid(self.deconv1(x12d))
         pred_mattes = x11d
 
-        return pred_mattes
+        # Stage2 refine conv1
+        refine0 = torch.cat((x[:, :3, :, :], pred_mattes * 256),  1)
+        refine1 = F.relu(self.refine_conv1(refine0))
+        refine2 = F.relu(self.refine_conv2(refine1))
+        refine3 = F.relu(self.refine_conv3(refine2))
+        # Should add sigmoid?
+        pred_refine = F.sigmoid(self.refine_pred(refine3))
+
+        pred_alpha = pred_mattes + pred_refine
+
+        return pred_mattes, pred_alpha
