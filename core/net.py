@@ -53,8 +53,8 @@ class DeepMatting(nn.Module):
         self.deconv1 = nn.Conv2d(64, 1, kernel_size=5, padding=2,bias=True)
 
         # for stage2 training
-        for p in self.parameters():
-            p.requires_grad=False
+        #for p in self.parameters():
+        #    p.requires_grad=False
         
         self.refine_conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1, bias=True)
         self.refine_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
@@ -117,8 +117,8 @@ class DeepMatting(nn.Module):
         x12d = F.relu(self.bn11d(self.deconv1_1(x1d)))
 
         # Should add sigmoid? github repo add so.
-        x11d = F.sigmoid(self.deconv1(x12d))
-        pred_mattes = x11d
+        raw_alpha = self.deconv1(x12d)
+        pred_mattes = F.sigmoid(raw_alpha)
 
         # Stage2 refine conv1
         refine0 = torch.cat((x[:, :3, :, :], pred_mattes * 256),  1)
@@ -126,8 +126,12 @@ class DeepMatting(nn.Module):
         refine2 = F.relu(self.refine_conv2(refine1))
         refine3 = F.relu(self.refine_conv3(refine2))
         # Should add sigmoid?
-        pred_refine = F.sigmoid(self.refine_pred(refine3))
+        # sigmoid lead to refine result all converge to 0... 
+        #pred_refine = F.sigmoid(self.refine_pred(refine3))
+        pred_refine = self.refine_pred(refine3)
 
-        pred_alpha = pred_mattes + pred_refine
+        pred_alpha = F.sigmoid(raw_alpha + pred_refine)
+
+        #print(pred_mattes.mean(), pred_alpha.mean(), pred_refine.sum())
 
         return pred_mattes, pred_alpha

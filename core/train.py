@@ -157,10 +157,13 @@ def train(args, model, optimizer, train_loader, epoch):
         pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
         # stage1 loss
-        #alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
-        #loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+        alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+        loss_stage1 = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
 
-        loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
+        # stage2 loss
+        loss_stage2 = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
+
+        loss = loss_stage1 + loss_stage2
 
         loss.backward()
         optimizer.step()
@@ -175,8 +178,11 @@ def train(args, model, optimizer, train_loader, epoch):
             #print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
             
             # stage 2
-            print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
+            #print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
 
+            # stage 3
+            print("Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss_stage1.data[0], loss_stage2.data[0], speed, exp_time))
+            
 def checkpoint(epoch, save_dir, model):
     model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)
     torch.save({

@@ -91,7 +91,8 @@ def main():
             trimap = trimap.cuda()
         #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
 
-        pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+        #pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+        pred_alpha, pred_mattes = model(torch.cat((img, trimap), 1))
         # only attention unknown region
         pred_mattes[trimap == 255] = 1.
         pred_mattes[trimap == 0  ] = 0.
