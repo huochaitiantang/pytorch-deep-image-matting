@@ -24,7 +24,7 @@ def get_args():
     print(args)
     return args
 
-def gen_dataset(imgdir, trimapdir, size_h, size_w):
+def gen_dataset(imgdir, trimapdir):
         sample_set = []
         img_ids = os.listdir(imgdir)
         cnt = len(img_ids)
@@ -36,25 +36,8 @@ def gen_dataset(imgdir, trimapdir, size_h, size_w):
             assert(os.path.exists(img_name))
             assert(os.path.exists(trimap_name))
 
-            img = cv2.imread(img_name)
-            img_info = (img_id, img.shape[0], img.shape[1])
+            sample_set.append((img_name, trimap_name))
 
-            # resize
-            img = cv2.resize(img, (size_w, size_h), interpolation=cv2.INTER_LINEAR)
-            trimap = cv2.imread(trimap_name)[:, :, 0]
-            trimap = cv2.resize(trimap, (size_w, size_h), interpolation=cv2.INTER_LINEAR)
-
-            # to Tensor
-            img = torch.from_numpy(img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
-            trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-
-            sample_set.append((img, trimap, img_info))
-            #if cur >= 10:
-            #    break
-            if cur % 100 == 0:
-                print("\t--{}/{}".format(cur, cnt))
-            cur += 1
-        print('\t--Valid samples: {}'.format(len(sample_set)))
         return sample_set
 
 
@@ -76,15 +59,25 @@ def main():
         model = model.cuda()
 
     print("===> Load dataset")
-    dataset = gen_dataset(args.imgDir, args.trimapDir, args.size_h, args.size_w)
+    dataset = gen_dataset(args.imgDir, args.trimapDir)
 
     mse_diffs = 0.
     pixels = 0.
     cnt = len(dataset)
     cur = 1
     t0 = time.time()
-    for img, trimap, info in dataset:
-        print('[{}/{}] {}'.format(cur, cnt, info[0]))
+    for img_path, trimap_path in dataset:
+        img = cv2.imread(img_path)
+        trimap = cv2.imread(trimap_path)[:, :, 0]
+        img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
+        # resize
+        img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+        trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+        # to Tensor
+        img = torch.from_numpy(img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
+        trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+    
+        print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
         cur += 1
         if args.cuda:
             img = img.cuda()
@@ -102,14 +95,15 @@ def main():
             pred_mattes = pred_mattes.cpu()
         pred_mattes = pred_mattes.numpy()[0, 0, :, :]
 
-        origin_pred_mattes = cv2.resize(pred_mattes, (info[2], info[1]), interpolation = cv2.INTER_LINEAR)
+        # resize to origin size
+        origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
-        cv2.imwrite(os.path.join(args.saveDir, info[0]), origin_pred_mattes)
+        cv2.imwrite(os.path.join(args.saveDir, img_info[0]), origin_pred_mattes)
 
         pixels = pixels + ((trimap == 128).sum())
         # eval if gt alpha is given
         if args.alphaDir != '':
-            alpha_name = os.path.join(args.alphaDir, info[0])
+            alpha_name = os.path.join(args.alphaDir, img_info[0])
             assert(os.path.exists(alpha_name))
             alpha = cv2.imread(alpha_name)[:, :, 0]
             assert(alpha.shape == origin_pred_mattes.shape)
