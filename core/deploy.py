@@ -20,6 +20,8 @@ def get_args():
     parser.add_argument('--resume', type=str, required=True, help="checkpoint that model resume from")
     parser.add_argument('--saveDir', type=str, required=True, help="where prediction result save to")
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
+    parser.add_argument('--stage', type=int, required=True, help="backbone stage")
+    parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
     args = parser.parse_args()
     print(args)
     return args
@@ -51,9 +53,12 @@ def main():
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
      
-    model = net.DeepMatting()
+    model = net.DeepMatting(args)
     ckpt = torch.load(args.resume)
-    model.load_state_dict(ckpt['state_dict'], strict=True)
+    if args.not_strict:
+        model.load_state_dict(ckpt['state_dict'], strict=False)
+    else:
+        model.load_state_dict(ckpt['state_dict'], strict=True)
 
     if args.cuda:
         model = model.cuda()
@@ -83,9 +88,13 @@ def main():
             img = img.cuda()
             trimap = trimap.cuda()
         #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
-
-        #pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
-        pred_alpha, pred_mattes = model(torch.cat((img, trimap), 1))
+        assert(args.stage in [1, 2, 3])
+        if args.stage == 1:
+            # stage 1
+            pred_mattes, _ = model(torch.cat((img, trimap), 1))
+        else:
+            # stage 2, 3
+            _, pred_mattes = model(torch.cat((img, trimap), 1))
         # only attention unknown region
         pred_mattes[trimap == 255] = 1.
         pred_mattes[trimap == 0  ] = 0.

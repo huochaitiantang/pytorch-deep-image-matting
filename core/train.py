@@ -36,6 +36,7 @@ def get_args():
     parser.add_argument('--printFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
+    parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
     args = parser.parse_args()
     print(args)
     return args
@@ -57,7 +58,7 @@ def weight_init(m):
         m.bias.data.zero_()
 
 def build_model(args):
-    model = net.DeepMatting()
+    model = net.DeepMatting(args)
     model.apply(weight_init)
     
     start_epoch = 1
@@ -133,6 +134,7 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
 
 def train(args, model, optimizer, train_loader, epoch):
     t0 = time.time()
+    assert(args.stage in [1, 2, 3])
     for iteration, batch in enumerate(train_loader, 1):
         img = Variable(batch[0])
         alpha = Variable(batch[1])
@@ -156,15 +158,20 @@ def train(args, model, optimizer, train_loader, epoch):
 
         pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
-        # stage1 loss
-        alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
-        loss_stage1 = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
-
-        # stage2 loss
-        loss_stage2 = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
-
-        loss = loss_stage1 + loss_stage2
-
+        if args.stage == 1:
+            # stage1 loss
+            alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+            loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+        elif args.stage == 2:
+            # stage2 loss
+            loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
+        else:
+            # stage3 loss = stage1 loss + stage2 loss
+            alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+            loss1 = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+            loss2 = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
+            loss = loss1 + loss2
+        
         loss.backward()
         optimizer.step()
 
@@ -174,15 +181,17 @@ def train(args, model, optimizer, train_loader, epoch):
             speed = (t1 - t0) / iteration
             exp_time = format_second(speed * (num_iter * (args.nEpochs - epoch + 1) - iteration))
 
-            # stage 1
-            #print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
+            if args.stage == 1:
+                # stage 1
+                print("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
+            elif args.stage == 2:
+                # stage 2
+                print("Stage2-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
+            else:
+                # stage 3
+                print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss1.data[0], loss2.data[0], speed, exp_time))
             
-            # stage 2
-            #print("===> Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
 
-            # stage 3
-            print("Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss_stage1.data[0], loss_stage2.data[0], speed, exp_time))
-            
 def checkpoint(epoch, save_dir, model):
     model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)
     torch.save({

@@ -1,18 +1,18 @@
 #/bin/bash
 
 ROOT=/home/liuliang/Desktop/pytorch-deep-image-matting
-DATA_ROOT=/home/liuliang/Desktop/alpha_pictures/kisspng
+DATA_ROOT=/home/liuliang/Desktop/matting_data
+#DATA_ROOT=/home/liuliang/Desktop/dataset_shen_matting
 
 python core/deploy.py \
-	--size_h=320 \
-	--size_w=320 \
+	--size_h=480 \
+	--size_w=480 \
 	--imgDir=$DATA_ROOT/test/image \
 	--trimapDir=$DATA_ROOT/test/trimap \
 	--saveDir=$ROOT/result/tmp \
 	--alphaDir=$DATA_ROOT/test/alpha \
-	--resume=$ROOT/model/stage1/ckpt_e55.pth \
-	--cuda
-
-	#--imgDir=/home/liuliang/Desktop/pytorch-fast-matting-portrait/data/images_data_crop
-	#--trimapDir=/home/liuliang/Desktop/pytorch-fast-matting-portrait/data/images_trimap_dilated_eroded_size50 
-	#--trimapDir=/home/liuliang/Desktop/pytorch-fast-matting-portrait/data/images_deep_image_matting
+	--resume=$ROOT/model/input_480_stage1/ckpt_e40.pth \
+	--cuda \
+        --stage=1 \
+        #--not_strict \
+	#--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_deeplabv3+_e500 \

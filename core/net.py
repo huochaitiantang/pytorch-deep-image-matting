@@ -5,7 +5,7 @@ import cv2
 import torch.nn.functional as F
 
 class DeepMatting(nn.Module):
-    def __init__(self):
+    def __init__(self, args):
         super(DeepMatting, self).__init__()
         batchNorm_momentum = 0.1
         self.conv1_1 = nn.Conv2d(4, 64, kernel_size=3,stride = 1, padding=1,bias=True)
@@ -52,9 +52,11 @@ class DeepMatting(nn.Module):
         
         self.deconv1 = nn.Conv2d(64, 1, kernel_size=5, padding=2,bias=True)
 
-        # for stage2 training
-        #for p in self.parameters():
-        #    p.requires_grad=False
+        assert(args.stage in [1, 2, 3])
+        if args.stage == 2:
+            # for stage2 training
+            for p in self.parameters():
+                p.requires_grad=False
         
         self.refine_conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1, bias=True)
         self.refine_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
