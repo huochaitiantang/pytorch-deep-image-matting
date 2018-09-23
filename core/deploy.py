@@ -2,6 +2,7 @@ import torch
 import argparse
 import torch.nn as nn
 import net
+import resnet_aspp
 import cv2
 import os
 from torchvision import transforms
@@ -22,6 +23,7 @@ def get_args():
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
     parser.add_argument('--stage', type=int, required=True, help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
     args = parser.parse_args()
     print(args)
     return args
@@ -52,8 +54,11 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
-     
-    model = net.DeepMatting(args)
+
+    if args.arch == "resnet50_aspp":
+        model = resnet_aspp.resnet50(args)
+    else:     
+        model = net.DeepMatting(args)
     ckpt = torch.load(args.resume)
     if args.not_strict:
         model.load_state_dict(ckpt['state_dict'], strict=False)

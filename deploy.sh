@@ -11,8 +11,9 @@ python core/deploy.py \
 	--trimapDir=$DATA_ROOT/test/trimap \
 	--saveDir=$ROOT/result/tmp \
 	--alphaDir=$DATA_ROOT/test/alpha \
-	--resume=$ROOT/model/input_480_stage1/ckpt_e40.pth \
+	--resume=$ROOT/model/input_480_stage2/ckpt_e40.pth \
 	--cuda \
-        --stage=1 \
+        --stage=2 \
+        --arch=vgg16 \
         #--not_strict \
 	#--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_deeplabv3+_e500 \

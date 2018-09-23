@@ -12,7 +12,7 @@ python core/train.py \
 	--alphaDir=$DATA_ROOT/train/alpha \
 	--fgDir=$DATA_ROOT/train/fg \
 	--bgDir=$DATA_ROOT/train/bg \
-	--saveDir=$ROOT/model/input_480_stage2 \
+	--saveDir=$ROOT/model/input_480_stage3 \
 	--batchSize=3 \
 	--nEpochs=40 \
 	--step=-1 \
@@ -22,8 +22,8 @@ python core/train.py \
 	--printFreq=10 \
 	--ckptSaveFreq=1 \
 	--cuda \
-        --stage=2 \
-        --pretrain=model/input_480_stage1/ckpt_e40.pth
+        --stage=3 \
+        --arch=vgg16 \
+        --resume=model/input_480_stage3/ckpt_e3.pth
+        #--pretrain=model/ckpt-resnet50-19c8e357.pth
         #--pretrain=model/vgg_state_dict.pth
-	#--pretrain=model/stage2/ckpt_e40.pth \
-        #--pretrain=model/stage1/ckpt_e40.pth

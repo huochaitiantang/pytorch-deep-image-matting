@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
+import resnet_aspp
 from data import MatTransform, MatDataset
 from torchvision import transforms
 import time
@@ -37,6 +38,7 @@ def get_args():
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
     parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
     args = parser.parse_args()
     print(args)
     return args
@@ -58,8 +60,11 @@ def weight_init(m):
         m.bias.data.zero_()
 
 def build_model(args):
-    model = net.DeepMatting(args)
-    model.apply(weight_init)
+    if args.arch == "resnet50_aspp":
+        model = resnet_aspp.resnet50(args)
+    else:
+        model = net.DeepMatting(args)
+        model.apply(weight_init)
     
     start_epoch = 1
     if args.pretrain and os.path.isfile(args.pretrain):
