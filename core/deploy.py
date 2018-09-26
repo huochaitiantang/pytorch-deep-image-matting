@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--stage', type=int, required=True, help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
+    parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     args = parser.parse_args()
     print(args)
     return args
@@ -94,12 +95,17 @@ def main():
             trimap = trimap.cuda()
         #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
         assert(args.stage in [1, 2, 3])
+        if args.in_chan == 3:
+            input_t = img
+        else:
+            input_t = torch.cat((img, trimap), 1)
+
         if args.stage == 1:
             # stage 1
-            pred_mattes, _ = model(torch.cat((img, trimap), 1))
+            pred_mattes, _ = model(input_t)
         else:
             # stage 2, 3
-            _, pred_mattes = model(torch.cat((img, trimap), 1))
+            _, pred_mattes = model(input_t)
         # only attention unknown region
         pred_mattes[trimap == 255] = 1.
         pred_mattes[trimap == 0  ] = 0.

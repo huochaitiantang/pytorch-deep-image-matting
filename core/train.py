@@ -39,6 +39,7 @@ def get_args():
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
     parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
+    parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     args = parser.parse_args()
     print(args)
     return args
@@ -161,7 +162,10 @@ def train(args, model, optimizer, train_loader, epoch):
         adjust_learning_rate(args, optimizer, epoch)
         optimizer.zero_grad()
 
-        pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+        if args.in_chan == 3:
+            pred_mattes, pred_alpha = model(img)
+        else:
+            pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
         if args.stage == 1:
             # stage1 loss

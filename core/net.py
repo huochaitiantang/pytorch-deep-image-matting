@@ -8,7 +8,10 @@ class DeepMatting(nn.Module):
     def __init__(self, args):
         super(DeepMatting, self).__init__()
         batchNorm_momentum = 0.1
-        self.conv1_1 = nn.Conv2d(4, 64, kernel_size=3,stride = 1, padding=1,bias=True)
+        if args.in_chan == 3:
+            self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3,stride = 1, padding=1,bias=True)
+        else:
+            self.conv1_1 = nn.Conv2d(4, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         self.bn11 = nn.BatchNorm2d(64, momentum= batchNorm_momentum)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         self.bn12 = nn.BatchNorm2d(64, momentum= batchNorm_momentum)
