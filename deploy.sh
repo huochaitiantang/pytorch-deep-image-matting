@@ -8,12 +8,16 @@ python core/deploy.py \
 	--size_h=480 \
 	--size_w=480 \
 	--imgDir=$DATA_ROOT/test/image \
-	--trimapDir=$DATA_ROOT/test/trimap \
 	--saveDir=$ROOT/result/tmp \
 	--alphaDir=$DATA_ROOT/test/alpha \
-	--resume=$ROOT/model/input_480_stage2/ckpt_e40.pth \
+	--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_vgg_add_shen_e30 \
+	--resume=$ROOT/model/input_480_stage3/ckpt_e40.pth \
 	--cuda \
-        --stage=2 \
+        --stage=1 \
         --arch=vgg16 \
+        #--in_chan=3
+        #--arch=resnet50_aspp \
+	#--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_vgg_e300 \
         #--not_strict \
 	#--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_deeplabv3+_e500 \
+	#--trimapDir=$DATA_ROOT/test/trimap \
