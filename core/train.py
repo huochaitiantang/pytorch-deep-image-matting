@@ -11,6 +11,8 @@ from data import MatTransform, MatDataset
 from torchvision import transforms
 import time
 import os
+import cv2
+import numpy as np
 
 
 def get_args():
@@ -39,6 +41,11 @@ def get_args():
     parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
+    parser.add_argument('--testFreq', type=int, default=10, help="test frequency")
+    parser.add_argument('--testImgDir', type=str, default='', help="test image")
+    parser.add_argument('--testTrimapDir', type=str, default='', help="test trimap")
+    parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
+    parser.add_argument('--testResDir', type=str, default='', help="test result save to")
     args = parser.parse_args()
     print(args)
     return args
@@ -138,6 +145,7 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
 
 
 def train(args, model, optimizer, train_loader, epoch):
+    model.train()
     t0 = time.time()
     assert(args.stage in [1, 2, 3])
     for iteration, batch in enumerate(train_loader, 1):
@@ -200,6 +208,94 @@ def train(args, model, optimizer, train_loader, epoch):
                 print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss1.data[0], loss2.data[0], speed, exp_time))
             
 
+def test(args, model):
+    model.eval()
+    sample_set = []
+    img_ids = os.listdir(args.testImgDir)
+    cnt = len(img_ids)
+    mse_diffs = 0.
+    sad_diffs = 0.
+    cur = 0
+    t0 = time.time()
+    for img_id in img_ids:
+        img_path = os.path.join(args.testImgDir, img_id)
+        trimap_path = os.path.join(args.testTrimapDir, img_id)
+
+        assert(os.path.exists(img_path))
+        assert(os.path.exists(trimap_path))
+
+        img = cv2.imread(img_path)
+        trimap = cv2.imread(trimap_path)[:, :, 0]
+
+        assert(img.shape[:2] == trimap.shape[:2])
+
+        img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
+        # resize for network input, to Tensor
+        scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+        scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+
+        tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
+        tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+    
+        cur += 1
+        if cur % 100 == 0:
+            print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
+        if args.cuda:
+            tensor_img = tensor_img.cuda()
+            tensor_trimap = tensor_trimap.cuda()
+        #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
+        assert(args.stage in [1, 2, 3])
+        if args.in_chan == 3:
+            input_t = tensor_img
+        else:
+            input_t = torch.cat((tensor_img, tensor_trimap), 1)
+
+        # forward
+        if args.stage == 1:
+            # stage 1
+            pred_mattes, _ = model(input_t)
+        else:
+            # stage 2, 3
+            _, pred_mattes = model(input_t)
+        pred_mattes = pred_mattes.data
+        if args.cuda:
+            pred_mattes = pred_mattes.cpu()
+        pred_mattes = pred_mattes.numpy()[0, 0, :, :]
+
+        # resize to origin size
+        origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
+        assert(origin_pred_mattes.shape == trimap.shape)
+
+        # only attention unknown region
+        origin_pred_mattes[trimap == 255] = 1.
+        origin_pred_mattes[trimap == 0  ] = 0.
+
+        # origin trimap 
+        pixel = float((trimap == 128).sum())
+        
+        # eval if gt alpha is given
+        if args.testAlphaDir != '':
+            alpha_name = os.path.join(args.testAlphaDir, img_info[0])
+            assert(os.path.exists(alpha_name))
+            alpha = cv2.imread(alpha_name)[:, :, 0] / 255.
+            assert(alpha.shape == origin_pred_mattes.shape)
+
+            mse_diff = ((origin_pred_mattes - alpha) ** 2).sum() / pixel
+            sad_diff = np.abs(origin_pred_mattes - alpha).sum()
+            mse_diffs += mse_diff
+            sad_diffs += sad_diff
+            if cur % 100 == 0:
+                print("sad:{} mse:{}".format(sad_diff, mse_diff))
+
+        origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
+        cv2.imwrite(os.path.join(args.testResDir, img_info[0]), origin_pred_mattes)
+
+    print("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))
+    if args.testAlphaDir != '':
+        print("Eval-MSE: {}".format(mse_diffs / cnt))
+        print("Eval-SAD: {}".format(sad_diffs / cnt))
+
+
 def checkpoint(epoch, save_dir, model):
     model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)
     torch.save({
@@ -207,6 +303,7 @@ def checkpoint(epoch, save_dir, model):
         'state_dict': model.state_dict(),
     }, model_out_path )
     print("Checkpoint saved to {}".format(model_out_path))
+
 
 def main():
 
@@ -238,6 +335,8 @@ def main():
         train(args, model, optimizer, train_loader, epoch)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
             checkpoint(epoch, args.saveDir, model)
+        if epoch > 0 and epoch % args.testFreq == 0:
+            test(args, model)
 
 
 if __name__ == "__main__":
