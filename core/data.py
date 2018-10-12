@@ -6,14 +6,15 @@ import numpy as np
 from torchvision import transforms
 
 def gen_trimap(alpha):
-    k_size = random.choice(range(10, 20))
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_size, k_size))
-    dilated = cv2.dilate(alpha, kernel)
+    k_size = random.choice(range(1, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    dilated = cv2.dilate(alpha, kernel, iterations=np.random.randint(1, 20))
     #eroded = cv2.erode(alpha, kernel)
     trimap = np.zeros(alpha.shape)
     trimap.fill(128)
     trimap[alpha >= 255] = 255
     trimap[dilated <= 0] = 0
+
     return trimap
 
 

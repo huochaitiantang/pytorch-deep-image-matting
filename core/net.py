@@ -8,6 +8,7 @@ class DeepMatting(nn.Module):
     def __init__(self, args):
         super(DeepMatting, self).__init__()
         batchNorm_momentum = 0.1
+        self.stage = args.stage
         if args.in_chan == 3:
             self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         else:
@@ -55,16 +56,16 @@ class DeepMatting(nn.Module):
         
         self.deconv1 = nn.Conv2d(64, 1, kernel_size=5, padding=2,bias=True)
 
-        assert(args.stage in [1, 2, 3])
         if args.stage == 2:
             # for stage2 training
             for p in self.parameters():
                 p.requires_grad=False
         
-        self.refine_conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1, bias=True)
-        self.refine_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
-        self.refine_conv3 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
-        self.refine_pred = nn.Conv2d(64, 1, kernel_size=3, padding=1, bias=True)
+        if self.stage == 2 or self.stage == 3:
+            self.refine_conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1, bias=True)
+            self.refine_conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+            self.refine_conv3 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+            self.refine_pred = nn.Conv2d(64, 1, kernel_size=3, padding=1, bias=True)
         
     def forward(self, x):
         # Stage 1
@@ -124,6 +125,9 @@ class DeepMatting(nn.Module):
         # Should add sigmoid? github repo add so.
         raw_alpha = self.deconv1(x12d)
         pred_mattes = F.sigmoid(raw_alpha)
+
+        if self.stage == 1:
+            return pred_mattes, 0
 
         # Stage2 refine conv1
         refine0 = torch.cat((x[:, :3, :, :], pred_mattes * 256),  1)

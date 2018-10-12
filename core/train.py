@@ -105,6 +105,19 @@ def format_second(secs):
     return ss    
 
 
+def gen_simple_alpha_loss(alpha, trimap, pred_mattes):
+    weighted = torch.zeros(trimap.shape).cuda()
+    weighted[trimap == 128] = 1.
+    alpha_f = alpha / 255.
+    diff = pred_mattes - alpha_f
+    diff = diff * weighted
+    alpha_loss = torch.sqrt(diff ** 2 + 1e-12)
+    alpha_loss_weighted = alpha_loss.sum() / (weighted.sum() + 1e-6)
+
+    return alpha_loss_weighted
+
+
+
 def gen_loss(img, alpha, fg, bg, trimap, pred_mattes):
     wi = torch.zeros(trimap.shape)
     wi[trimap == 128] = 1.
@@ -176,8 +189,11 @@ def train(args, model, optimizer, train_loader, epoch):
 
         if args.stage == 1:
             # stage1 loss
-            alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
-            loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+            #alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+            #loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
+            alpha_loss = loss
+            comp_loss = loss
         elif args.stage == 2:
             # stage2 loss
             loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
