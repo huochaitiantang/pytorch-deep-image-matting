@@ -41,7 +41,7 @@ def get_args():
     parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
-    parser.add_argument('--testFreq', type=int, default=10, help="test frequency")
+    parser.add_argument('--testFreq', type=int, default=-1, help="test frequency")
     parser.add_argument('--testImgDir', type=str, default='', help="test image")
     parser.add_argument('--testTrimapDir', type=str, default='', help="test trimap")
     parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
@@ -131,13 +131,13 @@ def gen_loss(img, alpha, fg, bg, trimap, pred_mattes):
     # alpha diff
     alpha = alpha / 255.
     alpha_loss = torch.sqrt((pred_mattes - alpha)**2 + 1e-12)
-    alpha_loss = (alpha_loss * t_wi).sum() / unknown_region_size
+    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1e-6)
 
     # composite rgb loss
     pred_mattes_3 = torch.cat((pred_mattes, pred_mattes, pred_mattes), 1)
     comp = pred_mattes_3 * fg + (1. - pred_mattes_3) * bg
     comp_loss = torch.sqrt((comp - img) ** 2 + 1e-12) / 255.
-    comp_loss = (comp_loss * t3_wi).sum() / unknown_region_size / 3.
+    comp_loss = (comp_loss * t3_wi).sum() / (unknown_region_size + 1e-6) / 3.
 
     #print("Loss: AlphaLoss:{} CompLoss:{}".format(alpha_loss, comp_loss))
     return alpha_loss, comp_loss
@@ -152,7 +152,7 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
     # alpha diff
     alpha = alpha / 255.
     alpha_loss = torch.sqrt((pred_alpha - alpha)**2 + 1e-12)
-    alpha_loss = (alpha_loss * t_wi).sum() / unknown_region_size
+    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1e-6)
     
     return alpha_loss
 
@@ -189,11 +189,11 @@ def train(args, model, optimizer, train_loader, epoch):
 
         if args.stage == 1:
             # stage1 loss
-            #alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
-            #loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
-            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
-            alpha_loss = loss
-            comp_loss = loss
+            alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
+            loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
+            #loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
+            #alpha_loss = loss
+            #comp_loss = loss
         elif args.stage == 2:
             # stage2 loss
             loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
@@ -351,7 +351,7 @@ def main():
         train(args, model, optimizer, train_loader, epoch)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
             checkpoint(epoch, args.saveDir, model)
-        if epoch > 0 and epoch % args.testFreq == 0:
+        if epoch > 0 and args.testFreq > 0 and epoch % args.testFreq == 0:
             test(args, model)
 
 

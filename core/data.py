@@ -55,7 +55,7 @@ def get_files(mydir):
     res = []
     for root, dirs, files in os.walk(mydir, followlinks=True):
         for f in files:
-            if f.endswith(".jpg") or f.endswith(".png") or f.endswith(".jpeg"):
+            if f.endswith(".jpg") or f.endswith(".png") or f.endswith(".jpeg") or f.endswith(".JPG"):
                 res.append(os.path.join(root, f))
     return res
 
@@ -88,6 +88,7 @@ class MatDataset(torch.utils.data.Dataset):
             self.bg_samples.append(bg_path)
         print("\t--Valid BG Samples: {}".format(self.bg_cnt))
 
+        assert(self.fg_cnt > 0 and self.bg_cnt > 0)
 
     def __getitem__(self,index):
         alpha_path, fg_path = self.fg_samples[index]
