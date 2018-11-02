@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 from pylab import *
 
 # args: log_name, match_rule, self_log_interval, smooth_log_interation
-title = "test_log"
-f = open("../log/loss_test.log")
-pattern = re.compile(r'Loss:\d+\.\d+')
-self_inter = 5
-smooth = 5
+loss_file_name = "simple_loss"
+title = "{}_Loss".format(loss_file_name)
+f = open("../log/{}.log".format(loss_file_name))
+pattern = re.compile(r'Loss:[ ]*\d+\.\d+')
+self_inter = 10
+smooth = 20
 
 # read log file
 lines = f.readlines()
@@ -45,6 +46,5 @@ plt.plot(xs, ys)
 plt.title(title)
 plt.xlabel("Iter")
 plt.ylabel("Loss")
-plt.savefig("loss.png")
+plt.savefig("../log/{}.png".format(title))
 plt.show()
-

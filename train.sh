@@ -1,38 +1,39 @@
 #/bin/bash
-
-ROOT=/home/liuliang/Desktop/pytorch-deep-image-matting
-DATA_ROOT=/home/liuliang/Desktop/dataset_deep_image_matting/Training_set
-TEST_DATA_ROOT=/home/liuliang/Desktop/dataset_deep_image_matting/Test_set
-#DATA_ROOT=/home/liuliang/Desktop/matting_data/unique_train
-#TEST_DATA_ROOT=/home/liuliang/Desktop/matting_data/test
+DESKTOP=/home/liuliang/Desktop
+ROOT=$DESKTOP/pytorch-deep-image-matting
+DATA_ROOT=$DESKTOP/dataset/matting
+TRAIN_DATA_ROOT=$DATA_ROOT/dataset_deep_image_matting/Training_set
+TEST_DATA_ROOT=$DATA_ROOT/dataset_deep_image_matting/Test_set
 
 python core/train.py \
 	--crop_h=320 \
 	--crop_w=320 \
 	--size_h=320 \
 	--size_w=320 \
-	--alphaDir=$DATA_ROOT/alpha  \
-	--fgDir=$DATA_ROOT/fg \
-	--bgDir=/home/liuliang/Desktop/bg_voc+coco_noperson \
-	--saveDir=$ROOT/model/debug \
-	--batchSize=12 \
-	--nEpochs=10000 \
+	--alphaDir=$TRAIN_DATA_ROOT/comp/alpha  \
+	--fgDir=$TRAIN_DATA_ROOT/comp/fg \
+	--bgDir=$TRAIN_DATA_ROOT/comp/bg \
+    --imgDir=$TRAIN_DATA_ROOT/comp/image \
+	--saveDir=$ROOT/model/deep_offline_vggnobn \
+	--batchSize=1 \
+	--nEpochs=10 \
 	--step=-1 \
 	--lr=0.00001 \
 	--wl_weight=0.5 \
 	--threads=4 \
-	--printFreq=5 \
-	--ckptSaveFreq=100 \
+	--printFreq=10 \
+	--ckptSaveFreq=1 \
 	--cuda \
     --stage=1 \
-    --arch=vgg16 \
-    --pretrain=model/vgg_state_dict.pth \
-    --testFreq=100 \
-    --testImgDir=$TEST_DATA_ROOT/image \
-    --testTrimapDir=$TEST_DATA_ROOT/trimap \
-    --testAlphaDir=$TEST_DATA_ROOT/alpha \
-    --testResDir=$ROOT/result/tmp \
-    #--resume=model/mat_stage1/ckpt_e90.pth \
+    --arch=vgg16_nobn \
+    --dataOffline \
+    --pretrain=$ROOT/model/vgg_state_dict.pth \
+    --testFreq=1 \
+    --testImgDir=$TEST_DATA_ROOT/comp/image \
+    --testTrimapDir=$TEST_DATA_ROOT/comp/trimap \
+    --testAlphaDir=$TEST_DATA_ROOT/comp/alpha \
+    --testResDir=$ROOT/deep_offline_vggnobn \
+    #--pretrain=model/input_480_stage3/ckpt_e40.pth \
     #--pretrain=model/deep_img_mat_stage2/ckpt_e200.pth \
     #--arch=resnet50_aspp \
     #--pretrain=model/ckpt-resnet50-19c8e357.pth

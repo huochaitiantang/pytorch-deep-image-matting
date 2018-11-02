@@ -94,7 +94,7 @@ class MatDataset(torch.utils.data.Dataset):
         alpha_path, fg_path = self.fg_samples[index]
         bg_path = self.bg_samples[random.randint(0, self.bg_cnt - 1)]
 
-        img_info = [fg_path.split('/')[-1], bg_path.split('/')[-1]]
+        img_info = [fg_path, alpha_path, bg_path]
 
         # read fg, alpha
         fg = cv2.imread(fg_path)[:, :, :3]
@@ -153,3 +153,76 @@ class MatDataset(torch.utils.data.Dataset):
     
     def __len__(self):
         return len(self.fg_samples)
+
+
+# Dataset not composite online
+class MatDatasetOffline(torch.utils.data.Dataset):
+    def __init__(self, alphadir, fgdir, bgdir, imgdir, size_h, size_w, crop_h, crop_w, transform=None):
+        self.samples=[]
+        self.transform = transform
+        self.size_h = size_h
+        self.size_w = size_w
+        self.crop_h = crop_h
+        self.crop_w = crop_w
+        
+        fg_paths = get_files(fgdir)
+
+        self.cnt = len(fg_paths)
+
+        for fg_path in fg_paths:
+            alpha_path = fg_path.replace(fgdir, alphadir)
+            img_path = fg_path.replace(fgdir, imgdir)
+            bg_path = fg_path.replace(fgdir, bgdir)
+            assert(os.path.exists(alpha_path))
+            assert(os.path.exists(fg_path))
+            assert(os.path.exists(bg_path))
+            assert(os.path.exists(img_path))
+            self.samples.append((alpha_path, fg_path, bg_path, img_path))
+        print("\t--Valid Samples: {}".format(self.cnt))
+        assert(self.cnt > 0)
+
+    def __getitem__(self,index):
+        alpha_path, fg_path, bg_path, img_path = self.samples[index]
+
+        img_info = [fg_path, alpha_path, bg_path, img_path]
+
+        # read fg, alpha
+        fg = cv2.imread(fg_path)[:, :, :3]
+        bg = cv2.imread(bg_path)[:, :, :3]
+        img = cv2.imread(img_path)[:, :, :3]
+        alpha = cv2.imread(alpha_path)[:, :, 0]
+        trimap = gen_trimap(alpha)
+
+        assert(bg.shape == fg.shape and bg.shape == img.shape)
+        img_info.append(fg.shape)
+
+        # random crop(crop_h, crop_w) and flip
+        if self.transform:
+            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, self.crop_h, self.crop_w)
+
+        # resize to (size_h, size_w)
+        if self.size_h != img.shape[0] or self.size_w != img.shape[1]:
+            # resize
+            img   =cv2.resize(img,    (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+            fg    =cv2.resize(fg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+            bg    =cv2.resize(bg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+            alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+            trimap=cv2.resize(trimap, (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+       
+        #cv2.imwrite("result/debug/{}_{}_img.png".format(img_info[0], img_info[1]), img)
+        #cv2.imwrite("result/debug/{}_{}_alpha.png".format(img_info[0], img_info[1]), alpha)
+        #cv2.imwrite("result/debug/{}_{}_fg.png".format(img_info[0], img_info[1]), fg)
+        #cv2.imwrite("result/debug/{}_{}_bg.png".format(img_info[0], img_info[1]), bg)
+        #cv2.imwrite("result/debug/{}_{}_trimap.png".format(img_info[0], img_info[1]), trimap)
+        
+
+        alpha = torch.from_numpy(alpha.astype(np.float32)[np.newaxis, :, :])
+        trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, :, :])
+        img = torch.from_numpy(img.astype(np.float32)).permute(2, 0, 1)
+        fg = torch.from_numpy(fg.astype(np.float32)).permute(2, 0, 1)
+        bg = torch.from_numpy(bg.astype(np.float32)).permute(2, 0, 1)
+
+        return img, alpha, fg, bg, trimap, img_info
+    
+    def __len__(self):
+        return len(self.samples)

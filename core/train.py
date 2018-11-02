@@ -6,8 +6,9 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
+import net_nobn
 import resnet_aspp
-from data import MatTransform, MatDataset
+from data import MatTransform, MatDataset, MatDatasetOffline
 from torchvision import transforms
 import time
 import os
@@ -25,6 +26,8 @@ def get_args():
     parser.add_argument('--alphaDir', type=str, required=True, help="directory of alpha")
     parser.add_argument('--fgDir', type=str, required=True, help="directory of fg")
     parser.add_argument('--bgDir', type=str, required=True, help="directory of bg")
+    parser.add_argument('--imgDir', type=str, default="", help="directory of img")
+    parser.add_argument('--dataOffline', action='store_true', help='use training data offline compoiste,  true require imDir not empty')
     parser.add_argument('--batchSize', type=int, default=64, help='training batch size')
     parser.add_argument('--nEpochs', type=int, default=20, help='number of epochs to train for')
     parser.add_argument('--step', type=int, default=10, help='epoch of learning decay')
@@ -39,7 +42,7 @@ def get_args():
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
     parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--testFreq', type=int, default=-1, help="test frequency")
     parser.add_argument('--testImgDir', type=str, default='', help="test image")
@@ -54,7 +57,11 @@ def get_args():
 def get_dataset(args):
     train_transform = MatTransform(flip=True)
     
-    train_set = MatDataset(args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
+    if(args.dataOffline):
+        assert(args.imgDir != "")
+        train_set = MatDatasetOffline(args.alphaDir, args.fgDir, args.bgDir, args.imgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
+    else:
+        train_set = MatDataset(args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
@@ -69,6 +76,9 @@ def weight_init(m):
 def build_model(args):
     if args.arch == "resnet50_aspp":
         model = resnet_aspp.resnet50(args)
+    elif args.arch == "vgg16_nobn":
+        model = net_nobn.DeepMattingNobn(args)
+        model.apply(weight_init)
     else:
         model = net.DeepMatting(args)
         model.apply(weight_init)
@@ -161,6 +171,7 @@ def train(args, model, optimizer, train_loader, epoch):
     model.train()
     t0 = time.time()
     assert(args.stage in [1, 2, 3])
+    #fout = open("train_loss.txt",'w')
     for iteration, batch in enumerate(train_loader, 1):
         img = Variable(batch[0])
         alpha = Variable(batch[1])
@@ -222,7 +233,10 @@ def train(args, model, optimizer, train_loader, epoch):
             else:
                 # stage 3
                 print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss1.data[0], loss2.data[0], speed, exp_time))
-            
+        #fout.write("{:.5f} {} {}\n".format(loss.data[0], img_info[0][0], img_info[1][0]))
+        #fout.flush()
+    #fout.close()
+
 
 def test(args, model):
     model.eval()
