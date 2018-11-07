@@ -4,8 +4,8 @@ import time
 import numpy as np
 
 fg_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/complex"
-#trimap_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/complex_trimap_deeplabv3"
-trimap_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/complex_segmentation_deeplabv3"
+trimap_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/complex_trimap_deeplabv3"
+#trimap_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/complex_segmentation_deeplabv3_png"
 save_dir = "/home/liuliang/Desktop/dataset/matting/xuexin/tmp"
 
 fgs = os.listdir(fg_dir)
@@ -35,6 +35,7 @@ for k in range(cnt):
     print("{}".format(k + 1))
     fg = fgs[k]
     fg_path = os.path.join(fg_dir, fg)
+    #trimap_path = os.path.join(trimap_dir, fg).replace(".JPG", ".png")
     trimap_path = os.path.join(trimap_dir, fg)
     assert(os.path.exists(fg_path) and os.path.exists(trimap_path))
 
@@ -44,7 +45,9 @@ for k in range(cnt):
     
     mask =  np.zeros_like(src)
     mask[trimap >= 128] = 255
-    
+    #mask = trimap
+    #cv2.imwrite(os.path.join(save_dir, "mask.png"), mask)
+
     x1, y1, x2, y2 = get_corner(mask[:, :, 0])
     center = (int(x1 + (x2 - x1) / 2), int(y1 + (y2 - y1) / 2))
 
@@ -61,19 +64,22 @@ for k in range(cnt):
 
     output = cv2.seamlessClone(src, bg, mask, center, cv2.NORMAL_CLONE)
     output = output[5: h + 5, 5: w + 5, :]
+    #cv2.imwrite(os.path.join(save_dir, "output.png"), output)
+    #cv2.imwrite(os.path.join(save_dir, "src.png"), src)
 
-    #res = np.zeros((h, w, c), src.dtype)
-    #res[:, :, 2] = 67
-    #res[:, :, 1] = 142
-    #res[:, :, 0] = 219
-    #fg_ind = (trimap == 255)
-    #trimap_ind = (trimap == 128)
-    #res[fg_ind] = src[fg_ind]
-    #res[trimap_ind] = output[trimap_ind]
+    #k_size = 3
+    #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    #eroded = cv2.erode(mask, kernel, iterations=10)
+    #cv2.imwrite(os.path.join(save_dir, "eroded.png"), eroded)
+    mask =  np.zeros_like(src)
+    mask[trimap >= 255] = 255
 
-    #save_path = os.path.join(save_dir, fg).replace(".JPG", ".png")
-    save_path = os.path.join(save_dir, fg)
+    alpha_f =  mask / 255.
+    output = alpha_f * src + (1. - alpha_f) * output
+
+    save_path = os.path.join(save_dir, fg).replace(".JPG", ".png")
     cv2.imwrite(save_path, output)
+    #break
 
 t1 = time.time()
 

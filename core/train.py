@@ -49,6 +49,7 @@ def get_args():
     parser.add_argument('--testTrimapDir', type=str, default='', help="test trimap")
     parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
     parser.add_argument('--testResDir', type=str, default='', help="test result save to")
+    parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
     args = parser.parse_args()
     print(args)
     return args
@@ -178,7 +179,8 @@ def train(args, model, optimizer, train_loader, epoch):
         fg = Variable(batch[2])
         bg = Variable(batch[3])
         trimap = Variable(batch[4])
-        img_info = batch[5]
+        grad = Variable(batch[5])
+        img_info = batch[-1]
 
         if args.cuda:
             img = img.cuda()
@@ -186,6 +188,7 @@ def train(args, model, optimizer, train_loader, epoch):
             fg = fg.cuda()
             bg = bg.cuda()
             trimap = trimap.cuda()
+            grad = grad.cuda()
 
         #print("Shape: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{}".format(img.shape, alpha.shape, fg.shape, bg.shape, trimap.shape))
         #print("Val: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{} Img_info".format(img, alpha, fg, bg, trimap, img_info))
@@ -196,7 +199,11 @@ def train(args, model, optimizer, train_loader, epoch):
         if args.in_chan == 3:
             pred_mattes, pred_alpha = model(img)
         else:
-            pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+            if args.addGrad:
+                pred_mattes, pred_alpha = model(torch.cat((img, trimap, grad), 1))
+            else:
+                pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+
 
         if args.stage == 1:
             # stage1 loss

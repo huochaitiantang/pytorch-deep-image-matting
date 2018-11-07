@@ -18,6 +18,15 @@ def gen_trimap(alpha):
     return trimap
 
 
+def compute_gradient(img):
+    x = cv2.Sobel(img, cv2.CV_16S, 1, 0)
+    y = cv2.Sobel(img, cv2.CV_16S, 0, 1)
+    absX = cv2.convertScaleAbs(x)
+    absY = cv2.convertScaleAbs(y)
+    grad = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+    grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
+    return grad
+
 class MatTransform(object):
     def __init__(self, flip=False):
         self.flip = flip
@@ -121,7 +130,6 @@ class MatDataset(torch.utils.data.Dataset):
         img = alpha_f * fg + ( 1. - alpha_f) * bg
 
         alpha = alpha[:, :, 0]
-        trimap = gen_trimap(alpha)
 
         # random crop(crop_h, crop_w) and flip
         if self.transform:
@@ -134,7 +142,8 @@ class MatDataset(torch.utils.data.Dataset):
             fg    =cv2.resize(fg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             bg    =cv2.resize(bg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
-            trimap=cv2.resize(trimap, (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+        trimap = gen_trimap(alpha)
+        grad = compute_gradient(img)
        
         #cv2.imwrite("result/debug/{}_{}_img.png".format(img_info[0], img_info[1]), img)
         #cv2.imwrite("result/debug/{}_{}_alpha.png".format(img_info[0], img_info[1]), alpha)
@@ -145,11 +154,12 @@ class MatDataset(torch.utils.data.Dataset):
 
         alpha = torch.from_numpy(alpha.astype(np.float32)[np.newaxis, :, :])
         trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, :, :])
+        grad = torch.from_numpy(grad.astype(np.float32)[np.newaxis, :, :])
         img = torch.from_numpy(img.astype(np.float32)).permute(2, 0, 1)
         fg = torch.from_numpy(fg.astype(np.float32)).permute(2, 0, 1)
         bg = torch.from_numpy(bg.astype(np.float32)).permute(2, 0, 1)
 
-        return img, alpha, fg, bg, trimap, img_info
+        return img, alpha, fg, bg, trimap, grad, img_info
     
     def __len__(self):
         return len(self.fg_samples)
@@ -191,10 +201,24 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         bg = cv2.imread(bg_path)[:, :, :3]
         img = cv2.imread(img_path)[:, :, :3]
         alpha = cv2.imread(alpha_path)[:, :, 0]
-        trimap = gen_trimap(alpha)
 
         assert(bg.shape == fg.shape and bg.shape == img.shape)
         img_info.append(fg.shape)
+        bh, bw, bc, = fg.shape
+        h, w = self.crop_h, self.crop_w
+
+        # make the img (h==croph and w>=cropw)or(w==cropw and h>=croph)
+        wratio = float(w) / bw
+        hratio = float(h) / bh
+        ratio = wratio if wratio > hratio else hratio
+        if ratio != 1:
+            nbw = int(bw * ratio + 1.0)
+            nbh = int(bh * ratio + 1.0)
+            fg = cv2.resize(fg, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
+            bg = cv2.resize(bg, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
+            img = cv2.resize(img, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
+            alpha = cv2.resize(alpha, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
+        trimap = gen_trimap(alpha)
 
         # random crop(crop_h, crop_w) and flip
         if self.transform:
@@ -207,22 +231,25 @@ class MatDatasetOffline(torch.utils.data.Dataset):
             fg    =cv2.resize(fg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             bg    =cv2.resize(bg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
-            trimap=cv2.resize(trimap, (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+        trimap = gen_trimap(alpha)
+        grad = compute_gradient(img)
        
-        #cv2.imwrite("result/debug/{}_{}_img.png".format(img_info[0], img_info[1]), img)
-        #cv2.imwrite("result/debug/{}_{}_alpha.png".format(img_info[0], img_info[1]), alpha)
-        #cv2.imwrite("result/debug/{}_{}_fg.png".format(img_info[0], img_info[1]), fg)
-        #cv2.imwrite("result/debug/{}_{}_bg.png".format(img_info[0], img_info[1]), bg)
-        #cv2.imwrite("result/debug/{}_{}_trimap.png".format(img_info[0], img_info[1]), trimap)
+        #img_id = img_info[0].split('/')[-1]
+        #cv2.imwrite("result/debug/{}_img.png".format(img_id), img)
+        #cv2.imwrite("result/debug/{}_alpha.png".format(img_id), alpha)
+        #cv2.imwrite("result/debug/{}_fg.png".format(img_id), fg)
+        #cv2.imwrite("result/debug/{}_bg.png".format(img_id), bg)
+        #cv2.imwrite("result/debug/{}_trimap.png".format(img_id), trimap)
+        #cv2.imwrite("result/debug/{}_grad.png".format(img_id), grad)
         
-
         alpha = torch.from_numpy(alpha.astype(np.float32)[np.newaxis, :, :])
         trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, :, :])
+        grad = torch.from_numpy(grad.astype(np.float32)[np.newaxis, :, :])
         img = torch.from_numpy(img.astype(np.float32)).permute(2, 0, 1)
         fg = torch.from_numpy(fg.astype(np.float32)).permute(2, 0, 1)
         bg = torch.from_numpy(bg.astype(np.float32)).permute(2, 0, 1)
 
-        return img, alpha, fg, bg, trimap, img_info
+        return img, alpha, fg, bg, trimap, grad, img_info
     
     def __len__(self):
         return len(self.samples)

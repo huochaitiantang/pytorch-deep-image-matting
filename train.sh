@@ -15,24 +15,25 @@ python core/train.py \
 	--bgDir=$TRAIN_DATA_ROOT/comp/bg \
     --imgDir=$TRAIN_DATA_ROOT/comp/image \
 	--saveDir=$ROOT/model/deep_offline_vggnobn \
-	--batchSize=1 \
-	--nEpochs=10 \
+	--batchSize=12 \
+	--nEpochs=15 \
 	--step=-1 \
 	--lr=0.00001 \
 	--wl_weight=0.5 \
 	--threads=4 \
-	--printFreq=10 \
+	--printFreq=1 \
 	--ckptSaveFreq=1 \
 	--cuda \
     --stage=1 \
     --arch=vgg16_nobn \
     --dataOffline \
-    --pretrain=$ROOT/model/vgg_state_dict.pth \
+    --resume=model/deep_offline_vggnobn/ckpt_e2.pth \
     --testFreq=1 \
     --testImgDir=$TEST_DATA_ROOT/comp/image \
     --testTrimapDir=$TEST_DATA_ROOT/comp/trimap \
     --testAlphaDir=$TEST_DATA_ROOT/comp/alpha \
-    --testResDir=$ROOT/deep_offline_vggnobn \
+    --testResDir=$ROOT/result/deep_offline_vggnobn \
+    #--pretrain=$ROOT/model/vgg_state_dict.pth \
     #--pretrain=model/input_480_stage3/ckpt_e40.pth \
     #--pretrain=model/deep_img_mat_stage2/ckpt_e200.pth \
     #--arch=resnet50_aspp \

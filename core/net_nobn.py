@@ -12,7 +12,10 @@ class DeepMattingNobn(nn.Module):
         if args.in_chan == 3:
             self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         else:
-            self.conv1_1 = nn.Conv2d(4, 64, kernel_size=3,stride = 1, padding=1,bias=True)
+            if args.addGrad:
+                self.conv1_1 = nn.Conv2d(5, 64, kernel_size=3,stride = 1, padding=1,bias=True)
+            else:
+                self.conv1_1 = nn.Conv2d(4, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3,stride = 1, padding=1,bias=True)
         self.conv2_1 = nn.Conv2d(64, 128, kernel_size=3, padding=1,bias=True)
         self.conv2_2 = nn.Conv2d(128, 128, kernel_size=3, padding=1,bias=True)

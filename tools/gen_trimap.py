@@ -4,17 +4,17 @@ import numpy as np
 import random
 
 def main():
-    alpha_dir = '/home/liuliang/Desktop/alpha_pictures/kisspng/test/alpha'
-    sav_dir = '/home/liuliang/Desktop/alpha_pictures/kisspng/test/trimap_dilate15'
+    alpha_dir = '/home/liuliang/Desktop/dataset/matting/xuexin/complex_segmentation_deeplabv3'
+    sav_dir = '/home/liuliang/Desktop/dataset/matting/xuexin/complex_segmentation_deeplabv3_gentrimap'
     img_ids = os.listdir(alpha_dir)
     print("Images count: {}".format(len(img_ids)))
     for img_id in img_ids:
         alpha = cv2.imread(os.path.join(alpha_dir, img_id), 0)
 
         #k_size = random.choice(range(20, 40))
-        k_size = 15
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_size, k_size))
-        dilated = cv2.dilate(alpha, kernel)
+        k_size = 3
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+        dilated = cv2.dilate(alpha, kernel, iterations=10)
         #eroded = cv2.erode(alpha, kernel)
 
         trimap = np.zeros(alpha.shape)

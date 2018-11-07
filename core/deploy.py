@@ -2,6 +2,7 @@ import torch
 import argparse
 import torch.nn as nn
 import net
+import net_nobn
 import resnet_aspp
 import cv2
 import os
@@ -23,8 +24,10 @@ def get_args():
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
     parser.add_argument('--stage', type=int, required=True, help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","resnet50_aspp"], help="net backbone")
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
+    parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
+    parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     args = parser.parse_args()
     print(args)
     return args
@@ -58,6 +61,8 @@ def main():
 
     if args.arch == "resnet50_aspp":
         model = resnet_aspp.resnet50(args)
+    elif args.arch == "vgg16_nobn":
+        model = net_nobn.DeepMattingNobn(args)
     else:     
         model = net.DeepMatting(args)
     ckpt = torch.load(args.resume)
@@ -87,6 +92,11 @@ def main():
         # resize for network input, to Tensor
         scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
         scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+
+        if args.bilateralfilter:
+            #cv2.imwrite("result/debug/{}_before.png".format(img_info[0][:-4]), scale_img)
+            scale_img = cv2.bilateralFilter(scale_img, d=9, sigmaColor=100, sigmaSpace=100)
+            #cv2.imwrite("result/debug/{}_after.png".format(img_info[0][:-4]), scale_img)
 
         tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
         tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
@@ -118,10 +128,6 @@ def main():
         # resize to origin size
         origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
         assert(origin_pred_mattes.shape == trimap.shape)
-
-        # only attention unknown region
-        origin_pred_mattes[trimap == 255] = 1.
-        origin_pred_mattes[trimap == 0  ] = 0.
 
         # origin trimap 
         pixel = float((trimap == 128).sum())
@@ -156,7 +162,18 @@ def main():
             print("sad:{} mse:{}".format(sad_diff, mse_diff))
 
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
-        cv2.imwrite(os.path.join(args.saveDir, img_info[0]), origin_pred_mattes)
+        res = origin_pred_mattes.copy()
+        if args.guidedfilter:
+            radius = 50
+            eps = 1e-6
+            GF = cv2.ximgproc.createGuidedFilter(img, radius, eps)
+            GF.filter(origin_pred_mattes, res)
+            
+        # only attention unknown region
+        res[trimap == 255] = 255
+        res[trimap == 0  ] = 0
+
+        cv2.imwrite(os.path.join(args.saveDir, img_info[0]), res)
 
     print("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))
     if args.alphaDir != '':
