@@ -245,6 +245,15 @@ def train(args, model, optimizer, train_loader, epoch):
     #fout.close()
 
 
+def compute_gradient(img):
+    x = cv2.Sobel(img, cv2.CV_16S, 1, 0)
+    y = cv2.Sobel(img, cv2.CV_16S, 0, 1)
+    absX = cv2.convertScaleAbs(x)
+    absY = cv2.convertScaleAbs(y)
+    grad = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+    grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
+    return grad
+
 def test(args, model):
     model.eval()
     sample_set = []
@@ -269,10 +278,12 @@ def test(args, model):
         img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
         # resize for network input, to Tensor
         scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+        scale_grad = compute_gradient(scale_img)
         scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
 
         tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
         tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+        tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
     
         cur += 1
         if cur % 100 == 0:
@@ -280,12 +291,16 @@ def test(args, model):
         if args.cuda:
             tensor_img = tensor_img.cuda()
             tensor_trimap = tensor_trimap.cuda()
+            tensor_grad = tensor_grad.cuda()
         #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
         assert(args.stage in [1, 2, 3])
         if args.in_chan == 3:
             input_t = tensor_img
         else:
-            input_t = torch.cat((tensor_img, tensor_trimap), 1)
+            if args.addGrad:
+                input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
+            else:
+                input_t = torch.cat((tensor_img, tensor_trimap), 1)
 
         # forward
         if args.stage == 1:

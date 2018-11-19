@@ -28,6 +28,7 @@ def get_args():
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
+    parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
     args = parser.parse_args()
     print(args)
     return args
@@ -47,6 +48,15 @@ def gen_dataset(imgdir, trimapdir):
             sample_set.append((img_name, trimap_name))
 
         return sample_set
+
+def compute_gradient(img):
+    x = cv2.Sobel(img, cv2.CV_16S, 1, 0)
+    y = cv2.Sobel(img, cv2.CV_16S, 0, 1)
+    absX = cv2.convertScaleAbs(x)
+    absY = cv2.convertScaleAbs(y)
+    grad = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+    grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
+    return grad
 
 
 def main():
@@ -98,20 +108,26 @@ def main():
             scale_img = cv2.bilateralFilter(scale_img, d=9, sigmaColor=100, sigmaSpace=100)
             #cv2.imwrite("result/debug/{}_after.png".format(img_info[0][:-4]), scale_img)
 
+        scale_grad = compute_gradient(scale_img)
         tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
         tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+        tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
     
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
         if args.cuda:
             tensor_img = tensor_img.cuda()
             tensor_trimap = tensor_trimap.cuda()
+            tensor_grad = tensor_grad.cuda()
         #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
         assert(args.stage in [1, 2, 3])
         if args.in_chan == 3:
             input_t = tensor_img
         else:
-            input_t = torch.cat((tensor_img, tensor_trimap), 1)
+            if args.addGrad:
+                input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
+            else:
+                input_t = torch.cat((tensor_img, tensor_trimap), 1)
 
         # forward
         if args.stage == 1:
