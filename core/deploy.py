@@ -22,13 +22,14 @@ def get_args():
     parser.add_argument('--resume', type=str, required=True, help="checkpoint that model resume from")
     parser.add_argument('--saveDir', type=str, required=True, help="where prediction result save to")
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
-    parser.add_argument('--stage', type=int, required=True, help="backbone stage")
+    parser.add_argument('--stage', type=int, required=True, choices=[1,2,3], help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
+    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop"], help="how manipulate image before test")
     args = parser.parse_args()
     print(args)
     return args
@@ -57,6 +58,50 @@ def compute_gradient(img):
     grad = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
     grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
     return grad
+
+
+# inference once for image, return numpy
+def inference_once(args, model, scale_img, scale_trimap):
+    
+    assert(scale_img.shape[0] == args.size_h)
+    assert(scale_img.shape[1] == args.size_w)
+
+    if args.bilateralfilter:
+        #cv2.imwrite("result/debug/{}_before.png".format(img_info[0][:-4]), scale_img)
+        scale_img = cv2.bilateralFilter(scale_img, d=9, sigmaColor=100, sigmaSpace=100)
+        #cv2.imwrite("result/debug/{}_after.png".format(img_info[0][:-4]), scale_img)
+
+    scale_grad = compute_gradient(scale_img)
+    tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
+    tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+    tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+
+    if args.cuda:
+        tensor_img = tensor_img.cuda()
+        tensor_trimap = tensor_trimap.cuda()
+        tensor_grad = tensor_grad.cuda()
+    #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
+
+    if args.in_chan == 3:
+        input_t = tensor_img
+    else:
+        if args.addGrad:
+            input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
+        else:
+            input_t = torch.cat((tensor_img, tensor_trimap), 1)
+
+    # forward
+    if args.stage == 1:
+        # stage 1
+        pred_mattes, _ = model(input_t)
+    else:
+        # stage 2, 3
+        _, pred_mattes = model(input_t)
+    pred_mattes = pred_mattes.data
+    if args.cuda:
+        pred_mattes = pred_mattes.cpu()
+    pred_mattes = pred_mattes.numpy()[0, 0, :, :]
+    return pred_mattes
 
 
 def main():
@@ -99,51 +144,65 @@ def main():
         assert(img.shape[:2] == trimap.shape[:2])
 
         img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
-        # resize for network input, to Tensor
-        scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-        scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
 
-        if args.bilateralfilter:
-            #cv2.imwrite("result/debug/{}_before.png".format(img_info[0][:-4]), scale_img)
-            scale_img = cv2.bilateralFilter(scale_img, d=9, sigmaColor=100, sigmaSpace=100)
-            #cv2.imwrite("result/debug/{}_after.png".format(img_info[0][:-4]), scale_img)
-
-        scale_grad = compute_gradient(scale_img)
-        tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
-        tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-        tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-    
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
-        if args.cuda:
-            tensor_img = tensor_img.cuda()
-            tensor_trimap = tensor_trimap.cuda()
-            tensor_grad = tensor_grad.cuda()
-        #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
-        assert(args.stage in [1, 2, 3])
-        if args.in_chan == 3:
-            input_t = tensor_img
-        else:
-            if args.addGrad:
-                input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
-            else:
-                input_t = torch.cat((tensor_img, tensor_trimap), 1)
+        
+        if args.crop_or_resize == "crop":
+            # crop the pictures, and forward one by one
+            h, w, c = img.shape
+            origin_pred_mattes = np.zeros((h, w), dtype=np.float32)
+            marks = np.zeros((h, w), dtype=np.float32)
 
-        # forward
-        if args.stage == 1:
-            # stage 1
-            pred_mattes, _ = model(input_t)
-        else:
-            # stage 2, 3
-            _, pred_mattes = model(input_t)
-        pred_mattes = pred_mattes.data
-        if args.cuda:
-            pred_mattes = pred_mattes.cpu()
-        pred_mattes = pred_mattes.numpy()[0, 0, :, :]
+            for start_h in range(0, h, args.size_h / 2):
+                end_h = start_h + args.size_h
+                for start_w in range(0, w, args.size_w / 2):
+                
+                    end_w = start_w + args.size_w
+                    crop_img = img[start_h: end_h, start_w: end_w, :]
+                    crop_trimap = trimap[start_h: end_h, start_w: end_w]
+                    
+                    crop_origin_h = crop_img.shape[0]
+                    crop_origin_w = crop_img.shape[1]
 
-        # resize to origin size
-        origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
-        assert(origin_pred_mattes.shape == trimap.shape)
+                    #print("startH:{} startW:{} H:{} W:{}".format(start_h, start_w, crop_origin_h, crop_origin_w))
+
+                    if len(np.where(crop_trimap == 128)[0]) <= 0:
+                        continue
+
+                    # egde patch in the right or bottom
+                    if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
+                        crop_img = cv2.resize(crop_img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+                        crop_trimap = cv2.resize(crop_trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+                    
+                    # inference for each crop image patch
+                    pred_mattes = inference_once(args, model, crop_img, crop_trimap)
+
+                    if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
+                        pred_mattes = cv2.resize(pred_mattes, (crop_origin_w, crop_origin_h), interpolation=cv2.INTER_LINEAR)
+
+                    origin_pred_mattes[start_h: end_h, start_w: end_w] += pred_mattes
+                    marks[start_h: end_h, start_w: end_w] += 1
+
+            # smooth for overlap part
+            marks[marks <= 0] = 1.
+            origin_pred_mattes /= marks
+
+
+        else:
+            # resize for network input, to Tensor
+            scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+            scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+
+            pred_mattes = inference_once(args, model, scale_img, scale_trimap)
+
+            # resize to origin size
+            origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
+            assert(origin_pred_mattes.shape == trimap.shape)
+
+        # only attention unknown region
+        origin_pred_mattes[trimap == 255] = 1.
+        origin_pred_mattes[trimap == 0  ] = 0.
 
         # origin trimap 
         pixel = float((trimap == 128).sum())
