@@ -109,7 +109,7 @@ class DeepMattingNobn(nn.Module):
         raw_alpha = self.deconv1(x12d)
         pred_mattes = F.sigmoid(raw_alpha)
 
-        if self.stage == 1:
+        if self.stage <= 1:
             return pred_mattes, 0
 
         # Stage2 refine conv1

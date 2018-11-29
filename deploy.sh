@@ -1,26 +1,23 @@
 #/bin/bash
 
-DESKTOP=/home/liuliang/Desktop
+DESKTOP=/data3/liuliang
 
 MODEL_ROOT=$DESKTOP/pytorch-deep-image-matting
-#DATA_ROOT=/home/liuliang/Desktop/matting_data/test
-#DATA_ROOT=/home/liuliang/Desktop/dataset_shen_matting
-#DATA_ROOT=/home/liuliang/Desktop/dataset_alpha_matting
-#DATA_ROOT=/home/liuliang/Desktop/dataset_deep_image_matting/Test_set
-#DATA_ROOT=/home/liuliang/Desktop/photo_test
-DATA_ROOT=$DESKTOP/dataset/matting/matting_data/comp_with_our_photo_test
+DATA_ROOT=$DESKTOP/data/deep_image_matting/Test
+
 
 python core/deploy.py \
-	--size_h=512 \
-	--size_w=384 \
-	--imgDir=$DATA_ROOT/image \
-    --trimapDir=$DATA_ROOT/trimap \
-	--saveDir=$MODEL_ROOT/result/comp_with_our_photo \
-    --alphaDir=$DATA_ROOT/alpha \
-	--resume=$MODEL_ROOT/model/comp_with_our_photo/ckpt_e1.pth \
+	--size_h=320 \
+	--size_w=320 \
+	--imgDir=$DATA_ROOT/comp/image \
+    --trimapDir=$DATA_ROOT/comp/trimap \
+	--saveDir=$MODEL_ROOT/result/tmp \
+    --alphaDir=$DATA_ROOT/comp/alpha \
+	--resume=$MODEL_ROOT/model/stage0/ckpt_e1.pth \
 	--cuda \
-    --stage=1 \
+    --stage=0 \
     --arch=vgg16_nobn \
+    --crop_or_resize=crop
     #--in_chan=3
     #--arch=resnet50_aspp \
 	#--trimapDir=/home/liuliang/Desktop/pytorch-alpha-matting/result/trimap_vgg_e300 \

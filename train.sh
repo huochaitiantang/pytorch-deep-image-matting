@@ -1,22 +1,22 @@
 #/bin/bash
-DESKTOP=/home/liuliang/Desktop
+DESKTOP=/data3/liuliang
 ROOT=$DESKTOP/pytorch-deep-image-matting
-DATA_ROOT=$DESKTOP/dataset/matting
-TRAIN_DATA_ROOT=$DATA_ROOT/dataset_deep_image_matting/Training_set
-TEST_DATA_ROOT=$DATA_ROOT/dataset_deep_image_matting/Test_set
+DATA_ROOT=$DESKTOP/data/deep_image_matting
+TRAIN_DATA_ROOT=$DATA_ROOT/Train
+TEST_DATA_ROOT=$DATA_ROOT/Test
 
 python core/train.py \
-	--crop_h=320 \
-	--crop_w=320 \
+	--crop_h=320,480,640 \
+	--crop_w=320,480,640 \
 	--size_h=320 \
 	--size_w=320 \
 	--alphaDir=$TRAIN_DATA_ROOT/comp/alpha  \
 	--fgDir=$TRAIN_DATA_ROOT/comp/fg \
 	--bgDir=$TRAIN_DATA_ROOT/comp/bg \
     --imgDir=$TRAIN_DATA_ROOT/comp/image \
-	--saveDir=$ROOT/model/deep_offline_vggnobn \
-	--batchSize=12 \
-	--nEpochs=15 \
+	--saveDir=$ROOT/model/stage0 \
+	--batchSize=16 \
+	--nEpochs=30 \
 	--step=-1 \
 	--lr=0.00001 \
 	--wl_weight=0.5 \
@@ -24,15 +24,16 @@ python core/train.py \
 	--printFreq=1 \
 	--ckptSaveFreq=1 \
 	--cuda \
-    --stage=1 \
+    --stage=0 \
     --arch=vgg16_nobn \
     --dataOffline \
-    --resume=model/deep_offline_vggnobn/ckpt_e2.pth \
+    --pretrain=model/vgg_state_dict.pth \
     --testFreq=1 \
     --testImgDir=$TEST_DATA_ROOT/comp/image \
     --testTrimapDir=$TEST_DATA_ROOT/comp/trimap \
     --testAlphaDir=$TEST_DATA_ROOT/comp/alpha \
-    --testResDir=$ROOT/result/deep_offline_vggnobn \
+    --testResDir=$ROOT/stage0 \
+    --crop_or_resize=crop
     #--pretrain=$ROOT/model/vgg_state_dict.pth \
     #--pretrain=model/input_480_stage3/ckpt_e40.pth \
     #--pretrain=model/deep_img_mat_stage2/ckpt_e200.pth \

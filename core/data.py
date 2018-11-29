@@ -112,13 +112,15 @@ class MatDataset(torch.utils.data.Dataset):
         assert(alpha.shape == fg.shape)
         h, w, c = fg.shape
 
+        cur_crop_h = self.crop_h[random.randint(0, len(self.crop_h) - 1)]
+        cur_crop_w = self.crop_w[random.randint(0, len(self.crop_w) - 1)]
         # resize by aspectio so that it can be cropped
-        if h < self.crop_h or w < self.crop_w:
-            upratio = max((self.crop_h + 1)/float(h), (self.crop_w + 1)/float(w))
+        if h < cur_crop_h or w < cur_crop_w:
+            upratio = max((cur_crop_h + 1)/float(h), (cur_crop_w + 1)/float(w))
             w, h = int(w * upratio), int(h * upratio)
             fg   = cv2.resize(fg,  (w, h), interpolation=cv2.INTER_LINEAR)
             alpha = cv2.resize(alpha,(w, h), interpolation=cv2.INTER_LINEAR)
-        assert(w >= self.crop_w and h >= self.crop_w)
+        assert(w >= cur_crop_w and h >= cur_crop_w)
 
         # read the bg and resize as the size of fg,alpha
         bg = cv2.imread(bg_path)[:, :, :3]
@@ -133,7 +135,7 @@ class MatDataset(torch.utils.data.Dataset):
 
         # random crop(crop_h, crop_w) and flip
         if self.transform:
-            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, self.crop_h, self.crop_w)
+            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, cur_crop_h, cur_crop_w)
 
         # resize to (size_h, size_w)
         if self.size_h != img.shape[0] or self.size_w != img.shape[1]:
@@ -202,16 +204,19 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         img = cv2.imread(img_path)[:, :, :3]
         alpha = cv2.imread(alpha_path)[:, :, 0]
 
+        print("After0:{} {} {} {}".format(img.shape, alpha.shape, fg.shape, bg.shape))
+
         assert(bg.shape == fg.shape and bg.shape == img.shape)
         img_info.append(fg.shape)
         bh, bw, bc, = fg.shape
-        h, w = self.crop_h, self.crop_w
+        cur_crop_h = self.crop_h[random.randint(0, len(self.crop_h) - 1)]
+        cur_crop_w = self.crop_w[random.randint(0, len(self.crop_w) - 1)]
 
-        # make the img (h==croph and w>=cropw)or(w==cropw and h>=croph)
-        wratio = float(w) / bw
-        hratio = float(h) / bh
+        # if ratio!=1: make the img (h==croph and w>=cropw)or(w==cropw and h>=croph)
+        wratio = float(cur_crop_w) / bw
+        hratio = float(cur_crop_h) / bh
         ratio = wratio if wratio > hratio else hratio
-        if ratio != 1:
+        if ratio > 1:
             nbw = int(bw * ratio + 1.0)
             nbh = int(bh * ratio + 1.0)
             fg = cv2.resize(fg, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
@@ -222,7 +227,9 @@ class MatDatasetOffline(torch.utils.data.Dataset):
 
         # random crop(crop_h, crop_w) and flip
         if self.transform:
-            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, self.crop_h, self.crop_w)
+            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, cur_crop_h, cur_crop_w)
+
+        print("After1:{} {} {} {} {}".format(img.shape, alpha.shape, fg.shape, bg.shape, trimap.shape))
 
         # resize to (size_h, size_w)
         if self.size_h != img.shape[0] or self.size_w != img.shape[1]:
@@ -233,6 +240,7 @@ class MatDatasetOffline(torch.utils.data.Dataset):
             alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
         trimap = gen_trimap(alpha)
         grad = compute_gradient(img)
+        print("After2:{} {} {} {} {}".format(img.shape, alpha.shape, fg.shape, bg.shape, trimap.shape))
        
         #img_id = img_info[0].split('/')[-1]
         #cv2.imwrite("result/debug/{}_img.png".format(img_id), img)

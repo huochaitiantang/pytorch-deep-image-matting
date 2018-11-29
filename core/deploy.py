@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--resume', type=str, required=True, help="checkpoint that model resume from")
     parser.add_argument('--saveDir', type=str, required=True, help="where prediction result save to")
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
-    parser.add_argument('--stage', type=int, required=True, choices=[1,2,3], help="backbone stage")
+    parser.add_argument('--stage', type=int, required=True, choices=[0,1,2,3], help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
@@ -91,7 +91,7 @@ def inference_once(args, model, scale_img, scale_trimap):
             input_t = torch.cat((tensor_img, tensor_trimap), 1)
 
     # forward
-    if args.stage == 1:
+    if args.stage <= 1:
         # stage 1
         pred_mattes, _ = model(input_t)
     else:
@@ -102,6 +102,66 @@ def inference_once(args, model, scale_img, scale_trimap):
         pred_mattes = pred_mattes.cpu()
     pred_mattes = pred_mattes.numpy()[0, 0, :, :]
     return pred_mattes
+
+
+
+# forward for a full image by crop method
+def inference_img_by_crop(args, model, img, trimap):
+    # crop the pictures, and forward one by one
+    h, w, c = img.shape
+    origin_pred_mattes = np.zeros((h, w), dtype=np.float32)
+    marks = np.zeros((h, w), dtype=np.float32)
+
+    for start_h in range(0, h, args.size_h / 2):
+        end_h = start_h + args.size_h
+        for start_w in range(0, w, args.size_w / 2):
+        
+            end_w = start_w + args.size_w
+            crop_img = img[start_h: end_h, start_w: end_w, :]
+            crop_trimap = trimap[start_h: end_h, start_w: end_w]
+            
+            crop_origin_h = crop_img.shape[0]
+            crop_origin_w = crop_img.shape[1]
+
+            #print("startH:{} startW:{} H:{} W:{}".format(start_h, start_w, crop_origin_h, crop_origin_w))
+
+            if len(np.where(crop_trimap == 128)[0]) <= 0:
+                continue
+
+            # egde patch in the right or bottom
+            if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
+                crop_img = cv2.resize(crop_img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+                crop_trimap = cv2.resize(crop_trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+            
+            # inference for each crop image patch
+            pred_mattes = inference_once(args, model, crop_img, crop_trimap)
+
+            if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
+                pred_mattes = cv2.resize(pred_mattes, (crop_origin_w, crop_origin_h), interpolation=cv2.INTER_LINEAR)
+
+            origin_pred_mattes[start_h: end_h, start_w: end_w] += pred_mattes
+            marks[start_h: end_h, start_w: end_w] += 1
+
+    # smooth for overlap part
+    marks[marks <= 0] = 1.
+    origin_pred_mattes /= marks
+    return origin_pred_mattes
+
+
+# forward for a full image by resize method
+def inference_img_by_resize(args, model, img, trimap):
+    h, w, c = img.shape
+    # resize for network input, to Tensor
+    scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+    scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
+
+    pred_mattes = inference_once(args, model, scale_img, scale_trimap)
+
+    # resize to origin size
+    origin_pred_mattes = cv2.resize(pred_mattes, (w, h), interpolation = cv2.INTER_LINEAR)
+    assert(origin_pred_mattes.shape == trimap.shape)
+    return origin_pred_mattes
+
 
 
 def main():
@@ -149,56 +209,9 @@ def main():
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
         
         if args.crop_or_resize == "crop":
-            # crop the pictures, and forward one by one
-            h, w, c = img.shape
-            origin_pred_mattes = np.zeros((h, w), dtype=np.float32)
-            marks = np.zeros((h, w), dtype=np.float32)
-
-            for start_h in range(0, h, args.size_h / 2):
-                end_h = start_h + args.size_h
-                for start_w in range(0, w, args.size_w / 2):
-                
-                    end_w = start_w + args.size_w
-                    crop_img = img[start_h: end_h, start_w: end_w, :]
-                    crop_trimap = trimap[start_h: end_h, start_w: end_w]
-                    
-                    crop_origin_h = crop_img.shape[0]
-                    crop_origin_w = crop_img.shape[1]
-
-                    #print("startH:{} startW:{} H:{} W:{}".format(start_h, start_w, crop_origin_h, crop_origin_w))
-
-                    if len(np.where(crop_trimap == 128)[0]) <= 0:
-                        continue
-
-                    # egde patch in the right or bottom
-                    if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
-                        crop_img = cv2.resize(crop_img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-                        crop_trimap = cv2.resize(crop_trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-                    
-                    # inference for each crop image patch
-                    pred_mattes = inference_once(args, model, crop_img, crop_trimap)
-
-                    if crop_origin_h != args.size_h or crop_origin_w != args.size_w:
-                        pred_mattes = cv2.resize(pred_mattes, (crop_origin_w, crop_origin_h), interpolation=cv2.INTER_LINEAR)
-
-                    origin_pred_mattes[start_h: end_h, start_w: end_w] += pred_mattes
-                    marks[start_h: end_h, start_w: end_w] += 1
-
-            # smooth for overlap part
-            marks[marks <= 0] = 1.
-            origin_pred_mattes /= marks
-
-
+            origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
         else:
-            # resize for network input, to Tensor
-            scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-            scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-
-            pred_mattes = inference_once(args, model, scale_img, scale_trimap)
-
-            # resize to origin size
-            origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
-            assert(origin_pred_mattes.shape == trimap.shape)
+            origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
 
         # only attention unknown region
         origin_pred_mattes[trimap == 255] = 1.
@@ -248,6 +261,8 @@ def main():
         res[trimap == 255] = 255
         res[trimap == 0  ] = 0
 
+        if not os.path.exists(args.saveDir):
+            os.makedirs(args.saveDir)
         cv2.imwrite(os.path.join(args.saveDir, img_info[0]), res)
 
     print("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))

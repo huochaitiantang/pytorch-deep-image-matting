@@ -14,6 +14,7 @@ import time
 import os
 import cv2
 import numpy as np
+from deploy import inference_img_by_crop, inference_img_by_resize
 
 
 def get_args():
@@ -21,8 +22,8 @@ def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Super Res Example')
     parser.add_argument('--size_h', type=int, required=True, help="height size of input image")
     parser.add_argument('--size_w', type=int, required=True, help="width size of input image")
-    parser.add_argument('--crop_h', type=int, required=True, help="crop height size of input image")
-    parser.add_argument('--crop_w', type=int, required=True, help="crop width size of input image")
+    parser.add_argument('--crop_h', type=str, required=True, help="crop height size of input image")
+    parser.add_argument('--crop_w', type=str, required=True, help="crop width size of input image")
     parser.add_argument('--alphaDir', type=str, required=True, help="directory of alpha")
     parser.add_argument('--fgDir', type=str, required=True, help="directory of fg")
     parser.add_argument('--bgDir', type=str, required=True, help="directory of bg")
@@ -41,7 +42,7 @@ def get_args():
     parser.add_argument('--printFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
-    parser.add_argument('--stage', type=int, required=True, help="training stage: 1, 2, 3")
+    parser.add_argument('--stage', type=int, required=True, choices=[0, 1, 2, 3], help="training stage: 0(simple loss), 1, 2, 3")
     parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--testFreq', type=int, default=-1, help="test frequency")
@@ -50,6 +51,7 @@ def get_args():
     parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
     parser.add_argument('--testResDir', type=str, default='', help="test result save to")
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
+    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop"], help="how manipulate image before test")
     args = parser.parse_args()
     print(args)
     return args
@@ -58,11 +60,14 @@ def get_args():
 def get_dataset(args):
     train_transform = MatTransform(flip=True)
     
+    crop_h = [int(i) for in args.crop_h.split(',')]
+    crop_w = [int(i) for in args.crop_w.split(',')]
+
     if(args.dataOffline):
         assert(args.imgDir != "")
-        train_set = MatDatasetOffline(args.alphaDir, args.fgDir, args.bgDir, args.imgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
+        train_set = MatDatasetOffline(args.alphaDir, args.fgDir, args.bgDir, args.imgDir, args.size_h, args.size_w, crop_h, crop_w, train_transform)
     else:
-        train_set = MatDataset(args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, args.crop_h, args.crop_w, train_transform)
+        train_set = MatDataset(args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, crop_h, crop_w, train_transform)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
@@ -171,7 +176,6 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
 def train(args, model, optimizer, train_loader, epoch):
     model.train()
     t0 = time.time()
-    assert(args.stage in [1, 2, 3])
     #fout = open("train_loss.txt",'w')
     for iteration, batch in enumerate(train_loader, 1):
         img = Variable(batch[0])
@@ -205,13 +209,13 @@ def train(args, model, optimizer, train_loader, epoch):
                 pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
 
-        if args.stage == 1:
+        if args.stage == 0:
+            # stage0 loss, simple alpha loss
+            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
+        elif args.stage == 1:
             # stage1 loss
             alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
             loss = alpha_loss * args.wl_weight + comp_loss * (1. - args.wl_weight)
-            #loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
-            #alpha_loss = loss
-            #comp_loss = loss
         elif args.stage == 2:
             # stage2 loss
             loss = gen_alpha_pred_loss(alpha, pred_alpha, trimap)
@@ -231,7 +235,10 @@ def train(args, model, optimizer, train_loader, epoch):
             speed = (t1 - t0) / iteration
             exp_time = format_second(speed * (num_iter * (args.nEpochs - epoch + 1) - iteration))
 
-            if args.stage == 1:
+            if args.stage == 0:
+                print("Stage0-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
+                # stage 2
+            elif args.stage == 1:
                 # stage 1
                 print("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
             elif args.stage == 2:
@@ -244,15 +251,6 @@ def train(args, model, optimizer, train_loader, epoch):
         #fout.flush()
     #fout.close()
 
-
-def compute_gradient(img):
-    x = cv2.Sobel(img, cv2.CV_16S, 1, 0)
-    y = cv2.Sobel(img, cv2.CV_16S, 0, 1)
-    absX = cv2.convertScaleAbs(x)
-    absY = cv2.convertScaleAbs(y)
-    grad = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
-    grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
-    return grad
 
 def test(args, model):
     model.eval()
@@ -276,47 +274,14 @@ def test(args, model):
         assert(img.shape[:2] == trimap.shape[:2])
 
         img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
-        # resize for network input, to Tensor
-        scale_img = cv2.resize(img, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
-        scale_grad = compute_gradient(scale_img)
-        scale_trimap = cv2.resize(trimap, (args.size_w, args.size_h), interpolation=cv2.INTER_LINEAR)
 
-        tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
-        tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-        tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-    
         cur += 1
-        if cur % 100 == 0:
-            print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
-        if args.cuda:
-            tensor_img = tensor_img.cuda()
-            tensor_trimap = tensor_trimap.cuda()
-            tensor_grad = tensor_grad.cuda()
-        #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
-        assert(args.stage in [1, 2, 3])
-        if args.in_chan == 3:
-            input_t = tensor_img
-        else:
-            if args.addGrad:
-                input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
-            else:
-                input_t = torch.cat((tensor_img, tensor_trimap), 1)
+        print('[{}/{}] {}'.format(cur, cnt, img_info[0]))        
 
-        # forward
-        if args.stage == 1:
-            # stage 1
-            pred_mattes, _ = model(input_t)
+        if args.crop_or_resize == "crop":
+            origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
         else:
-            # stage 2, 3
-            _, pred_mattes = model(input_t)
-        pred_mattes = pred_mattes.data
-        if args.cuda:
-            pred_mattes = pred_mattes.cpu()
-        pred_mattes = pred_mattes.numpy()[0, 0, :, :]
-
-        # resize to origin size
-        origin_pred_mattes = cv2.resize(pred_mattes, (img_info[2], img_info[1]), interpolation = cv2.INTER_LINEAR)
-        assert(origin_pred_mattes.shape == trimap.shape)
+            origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
 
         # only attention unknown region
         origin_pred_mattes[trimap == 255] = 1.
@@ -340,6 +305,8 @@ def test(args, model):
                 print("sad:{} mse:{}".format(sad_diff, mse_diff))
 
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
+        if not os.path.exists(args.testResDir):
+            os.makedirs(args.testResDir)
         cv2.imwrite(os.path.join(args.testResDir, img_info[0]), origin_pred_mattes)
 
     print("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))
@@ -350,6 +317,8 @@ def test(args, model):
 
 def checkpoint(epoch, save_dir, model):
     model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     torch.save({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
