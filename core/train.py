@@ -50,6 +50,8 @@ def get_args():
     parser.add_argument('--testTrimapDir', type=str, default='', help="test trimap")
     parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
     parser.add_argument('--testResDir', type=str, default='', help="test result save to")
+    parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
+    parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
     parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop"], help="how manipulate image before test")
     args = parser.parse_args()
@@ -60,8 +62,8 @@ def get_args():
 def get_dataset(args):
     train_transform = MatTransform(flip=True)
     
-    crop_h = [int(i) for in args.crop_h.split(',')]
-    crop_w = [int(i) for in args.crop_w.split(',')]
+    crop_h = [int(i) for i in args.crop_h.split(',')]
+    crop_w = [int(i) for i in args.crop_w.split(',')]
 
     if(args.dataOffline):
         assert(args.imgDir != "")
