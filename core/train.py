@@ -14,7 +14,7 @@ import time
 import os
 import cv2
 import numpy as np
-from deploy import inference_img_by_crop, inference_img_by_resize
+from deploy import inference_img_by_crop, inference_img_by_resize, inference_img_whole
 
 
 def get_args():
@@ -281,7 +281,9 @@ def test(args, model):
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))        
 
-        if args.crop_or_resize == "crop":
+        if args.crop_or_resize == "whole":
+            origin_pred_mattes = inference_img_whole(args, model, img, trimap)
+        elif args.crop_or_resize == "crop":
             origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
         else:
             origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
@@ -304,8 +306,7 @@ def test(args, model):
             sad_diff = np.abs(origin_pred_mattes - alpha).sum()
             mse_diffs += mse_diff
             sad_diffs += sad_diff
-            if cur % 100 == 0:
-                print("sad:{} mse:{}".format(sad_diff, mse_diff))
+            print("sad:{} mse:{}".format(sad_diff, mse_diff))
 
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
         if not os.path.exists(args.testResDir):
