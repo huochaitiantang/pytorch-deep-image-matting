@@ -29,7 +29,8 @@ def get_args():
     parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
-    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop"], help="how manipulate image before test")
+    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
+    parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
     args = parser.parse_args()
     print(args)
     return args
@@ -61,10 +62,11 @@ def compute_gradient(img):
 
 
 # inference once for image, return numpy
-def inference_once(args, model, scale_img, scale_trimap):
-    
-    assert(scale_img.shape[0] == args.size_h)
-    assert(scale_img.shape[1] == args.size_w)
+def inference_once(args, model, scale_img, scale_trimap, aligned=True):
+
+    if aligned:
+        assert(scale_img.shape[0] == args.size_h)
+        assert(scale_img.shape[1] == args.size_w)
 
     if args.bilateralfilter:
         #cv2.imwrite("result/debug/{}_before.png".format(img_info[0][:-4]), scale_img)
@@ -112,9 +114,9 @@ def inference_img_by_crop(args, model, img, trimap):
     origin_pred_mattes = np.zeros((h, w), dtype=np.float32)
     marks = np.zeros((h, w), dtype=np.float32)
 
-    for start_h in range(0, h, args.size_h / 2):
+    for start_h in range(0, h, args.size_h):
         end_h = start_h + args.size_h
-        for start_w in range(0, w, args.size_w / 2):
+        for start_w in range(0, w, args.size_w):
         
             end_w = start_w + args.size_w
             crop_img = img[start_h: end_h, start_w: end_w, :]
@@ -163,6 +165,23 @@ def inference_img_by_resize(args, model, img, trimap):
     return origin_pred_mattes
 
 
+# forward a whole image
+def inference_img_whole(args, model, img, trimap):
+    h, w, c = img.shape
+    new_h = min(args.max_size, h - (h % 32))
+    new_w = min(args.max_size, w - (w % 32))
+
+    # resize for network input, to Tensor
+    scale_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    scale_trimap = cv2.resize(trimap, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    pred_mattes = inference_once(args, model, scale_img, scale_trimap, aligned=False)
+
+    # resize to origin size
+    origin_pred_mattes = cv2.resize(pred_mattes, (w, h), interpolation = cv2.INTER_LINEAR)
+    assert(origin_pred_mattes.shape == trimap.shape)
+    return origin_pred_mattes
+
 
 def main():
 
@@ -170,7 +189,7 @@ def main():
     args = get_args()
 
     print("===> Environment init")
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
 
@@ -208,7 +227,9 @@ def main():
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
         
-        if args.crop_or_resize == "crop":
+        if args.crop_or_resize == "whole":
+            origin_pred_mattes = inference_img_whole(args, model, img, trimap)
+        elif args.crop_or_resize == "crop":
             origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
         else:
             origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)

@@ -53,7 +53,8 @@ def get_args():
     parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
-    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop"], help="how manipulate image before test")
+    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
+    parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
     args = parser.parse_args()
     print(args)
     return args
@@ -334,7 +335,7 @@ def main():
     args = get_args()
 
     print("===> Environment init")
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
     if args.cuda:
