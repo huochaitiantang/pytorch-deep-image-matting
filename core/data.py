@@ -70,24 +70,26 @@ def get_files(mydir):
 
 
 class MatDataset(torch.utils.data.Dataset):
-    def __init__(self, alphadir, fgdir, bgdir, size_h, size_w, crop_h, crop_w, transform=None):
+    def __init__(self, args, transform=None):
         self.fg_samples=[]
         self.bg_samples=[]
         self.transform = transform
-        self.size_h = size_h
-        self.size_w = size_w
-        self.crop_h = crop_h
-        self.crop_w = crop_w
+        self.args = args
+
+        self.size_h = args.size_h
+        self.size_w = args.size_w
+        self.crop_h = args.crop_h
+        self.crop_w = args.crop_w
         assert(len(self.crop_h) == len(self.crop_w))
         
-        fg_paths = get_files(fgdir)
-        bg_paths = get_files(bgdir)
+        fg_paths = get_files(self.args.fgDir)
+        bg_paths = get_files(self.args.bgDir)
 
         self.fg_cnt = len(fg_paths)
         self.bg_cnt = len(bg_paths)
 
         for fg_path in fg_paths:
-            alpha_path = fg_path.replace(fgdir, alphadir)
+            alpha_path = fg_path.replace(self.args.fgDir, self.args.alphaDir)
             assert(os.path.exists(alpha_path))
             assert(os.path.exists(fg_path))
             self.fg_samples.append((alpha_path, fg_path))
@@ -146,6 +148,10 @@ class MatDataset(torch.utils.data.Dataset):
             fg    =cv2.resize(fg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             bg    =cv2.resize(bg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+        
+        if self.args.bilateralfilter:
+            img = cv2.bilateralFilter(img, d=9, sigmaColor=100, sigmaSpace=100)
+        
         trimap = gen_trimap(alpha)
         grad = compute_gradient(img)
        
@@ -154,7 +160,6 @@ class MatDataset(torch.utils.data.Dataset):
         #cv2.imwrite("result/debug/{}_{}_fg.png".format(img_info[0], img_info[1]), fg)
         #cv2.imwrite("result/debug/{}_{}_bg.png".format(img_info[0], img_info[1]), bg)
         #cv2.imwrite("result/debug/{}_{}_trimap.png".format(img_info[0], img_info[1]), trimap)
-        
 
         alpha = torch.from_numpy(alpha.astype(np.float32)[np.newaxis, :, :])
         trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, :, :])
@@ -171,23 +176,24 @@ class MatDataset(torch.utils.data.Dataset):
 
 # Dataset not composite online
 class MatDatasetOffline(torch.utils.data.Dataset):
-    def __init__(self, alphadir, fgdir, bgdir, imgdir, size_h, size_w, crop_h, crop_w, transform=None):
+    def __init__(self, args, transform=None):
         self.samples=[]
         self.transform = transform
-        self.size_h = size_h
-        self.size_w = size_w
-        self.crop_h = crop_h
-        self.crop_w = crop_w
+        self.args = args
+        self.size_h = args.size_h
+        self.size_w = args.size_w
+        self.crop_h = args.crop_h
+        self.crop_w = args.crop_w
         assert(len(self.crop_h) == len(self.crop_w))
         
-        fg_paths = get_files(fgdir)
+        fg_paths = get_files(self.args.fgDir)
 
         self.cnt = len(fg_paths)
 
         for fg_path in fg_paths:
-            alpha_path = fg_path.replace(fgdir, alphadir)
-            img_path = fg_path.replace(fgdir, imgdir)
-            bg_path = fg_path.replace(fgdir, bgdir)
+            alpha_path = fg_path.replace(self.args.fgDir, self.args.alphaDir)
+            img_path = fg_path.replace(self.args.fgDir, self.args.imgDir)
+            bg_path = fg_path.replace(self.args.fgDir, self.args.bgDir)
             assert(os.path.exists(alpha_path))
             assert(os.path.exists(fg_path))
             assert(os.path.exists(bg_path))
@@ -239,9 +245,13 @@ class MatDatasetOffline(torch.utils.data.Dataset):
             fg    =cv2.resize(fg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             bg    =cv2.resize(bg,     (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
             alpha =cv2.resize(alpha,  (self.size_w, self.size_h), interpolation=cv2.INTER_LINEAR)
+
+        if self.args.bilateralfilter:
+            img = cv2.bilateralFilter(img, d=9, sigmaColor=100, sigmaSpace=100)
+        
         trimap = gen_trimap(alpha)
         grad = compute_gradient(img)
-       
+
         #img_id = img_info[0].split('/')[-1]
         #cv2.imwrite("result/debug/{}_img.png".format(img_id), img)
         #cv2.imwrite("result/debug/{}_alpha.png".format(img_id), alpha)
@@ -249,7 +259,6 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         #cv2.imwrite("result/debug/{}_bg.png".format(img_id), bg)
         #cv2.imwrite("result/debug/{}_trimap.png".format(img_id), trimap)
         #cv2.imwrite("result/debug/{}_grad.png".format(img_id), grad)
-        
         alpha = torch.from_numpy(alpha.astype(np.float32)[np.newaxis, :, :])
         trimap = torch.from_numpy(trimap.astype(np.float32)[np.newaxis, :, :])
         grad = torch.from_numpy(grad.astype(np.float32)[np.newaxis, :, :])

@@ -63,14 +63,14 @@ def get_args():
 def get_dataset(args):
     train_transform = MatTransform(flip=True)
     
-    crop_h = [int(i) for i in args.crop_h.split(',')]
-    crop_w = [int(i) for i in args.crop_w.split(',')]
+    args.crop_h = [int(i) for i in args.crop_h.split(',')]
+    args.crop_w = [int(i) for i in args.crop_w.split(',')]
 
     if(args.dataOffline):
         assert(args.imgDir != "")
-        train_set = MatDatasetOffline(args.alphaDir, args.fgDir, args.bgDir, args.imgDir, args.size_h, args.size_w, crop_h, crop_w, train_transform)
+        train_set = MatDatasetOffline(args, train_transform)
     else:
-        train_set = MatDataset(args.alphaDir, args.fgDir, args.bgDir, args.size_h, args.size_w, crop_h, crop_w, train_transform)
+        train_set = MatDataset(args, train_transform)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
