@@ -7,6 +7,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
 import net_nobn
+import simple_net
 import resnet_aspp
 from data import MatTransform, MatDataset, MatDatasetOffline
 from torchvision import transforms
@@ -43,7 +44,7 @@ def get_args():
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
     parser.add_argument('--stage', type=int, required=True, choices=[0, 1, 2, 3], help="training stage: 0(simple loss), 1, 2, 3")
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp", "simple"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--testFreq', type=int, default=-1, help="test frequency")
     parser.add_argument('--testImgDir', type=str, default='', help="test image")
@@ -87,6 +88,9 @@ def build_model(args):
         model = resnet_aspp.resnet50(args)
     elif args.arch == "vgg16_nobn":
         model = net_nobn.DeepMattingNobn(args)
+        model.apply(weight_init)
+    elif args.arch == "simple":
+        model = simple_net.DeepMattingSimple(args)
         model.apply(weight_init)
     else:
         model = net.DeepMatting(args)

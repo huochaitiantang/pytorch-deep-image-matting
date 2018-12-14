@@ -30,7 +30,7 @@ def get_args():
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
     parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
-    parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
+    parser.add_argument('--max_size', type=int, default=1600, help="max size of test image")
     args = parser.parse_args()
     print(args)
     return args
@@ -226,13 +226,16 @@ def main():
 
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))
-        
-        if args.crop_or_resize == "whole":
-            origin_pred_mattes = inference_img_whole(args, model, img, trimap)
-        elif args.crop_or_resize == "crop":
-            origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
-        else:
-            origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
+       
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+
+            if args.crop_or_resize == "whole":
+                origin_pred_mattes = inference_img_whole(args, model, img, trimap)
+            elif args.crop_or_resize == "crop":
+                origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
+            else:
+                origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
 
         # only attention unknown region
         origin_pred_mattes[trimap == 255] = 1.
