@@ -38,6 +38,7 @@ def get_args():
 def gen_dataset(imgdir, trimapdir):
         sample_set = []
         img_ids = os.listdir(imgdir)
+        img_ids.sort()
         cnt = len(img_ids)
         cur = 1
         for img_id in img_ids:

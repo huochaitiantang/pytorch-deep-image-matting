@@ -16,6 +16,7 @@ import os
 import cv2
 import numpy as np
 from deploy import inference_img_by_crop, inference_img_by_resize, inference_img_whole
+import math
 
 
 def get_args():
@@ -56,6 +57,7 @@ def get_args():
     parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
     parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
     parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
+    parser.add_argument('--grad_loss_weight', type=float, default=1., help="grad loss weight when grad == 0, from this value to 1.0")
     args = parser.parse_args()
     print(args)
     return args
@@ -78,7 +80,9 @@ def get_dataset(args):
 
 def weight_init(m):
     if isinstance(m, nn.Conv2d):
-        torch.nn.init.xavier_normal(m.weight.data)
+        torch.nn.init.xavier_normal_(m.weight.data)
+        #n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+        #m.weight.data.normal_(0, math.sqrt(2. / n))
     elif isinstance(m, nn.BatchNorm2d):
         m.weight.data.fill_(1)
         m.bias.data.zero_()
@@ -128,14 +132,21 @@ def format_second(secs):
     return ss    
 
 
-def gen_simple_alpha_loss(alpha, trimap, pred_mattes):
+def gen_simple_alpha_loss(alpha, trimap, pred_mattes, grad, args):
     weighted = torch.zeros(trimap.shape).cuda()
     weighted[trimap == 128] = 1.
     alpha_f = alpha / 255.
     diff = pred_mattes - alpha_f
     diff = diff * weighted
     alpha_loss = torch.sqrt(diff ** 2 + 1e-12)
-    alpha_loss_weighted = alpha_loss.sum() / (weighted.sum() + 1e-6)
+
+    # a*x*x + 1.0 = grad_loss_weight
+    normal_grad = grad / 255.
+    grad_weighted = (1. - args.grad_loss_weight) * torch.pow(normal_grad, 2.) + args.grad_loss_weight
+    #print("grad_weightd:{} max:{}".format(grad_weighted.mean(), grad_weighted.max()))
+
+    alpha_loss = alpha_loss * grad_weighted
+    alpha_loss_weighted = alpha_loss.sum() / (weighted.sum() + 1.)
 
     return alpha_loss_weighted
 
@@ -154,13 +165,13 @@ def gen_loss(img, alpha, fg, bg, trimap, pred_mattes):
     # alpha diff
     alpha = alpha / 255.
     alpha_loss = torch.sqrt((pred_mattes - alpha)**2 + 1e-12)
-    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1e-6)
+    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1.)
 
     # composite rgb loss
     pred_mattes_3 = torch.cat((pred_mattes, pred_mattes, pred_mattes), 1)
     comp = pred_mattes_3 * fg + (1. - pred_mattes_3) * bg
     comp_loss = torch.sqrt((comp - img) ** 2 + 1e-12) / 255.
-    comp_loss = (comp_loss * t3_wi).sum() / (unknown_region_size + 1e-6) / 3.
+    comp_loss = (comp_loss * t3_wi).sum() / (unknown_region_size + 1.) / 3.
 
     #print("Loss: AlphaLoss:{} CompLoss:{}".format(alpha_loss, comp_loss))
     return alpha_loss, comp_loss
@@ -175,7 +186,7 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
     # alpha diff
     alpha = alpha / 255.
     alpha_loss = torch.sqrt((pred_alpha - alpha)**2 + 1e-12)
-    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1e-6)
+    alpha_loss = (alpha_loss * t_wi).sum() / (unknown_region_size + 1.)
     
     return alpha_loss
 
@@ -218,7 +229,7 @@ def train(args, model, optimizer, train_loader, epoch):
 
         if args.stage == 0:
             # stage0 loss, simple alpha loss
-            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes)
+            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes, grad, args)
         elif args.stage == 1:
             # stage1 loss
             alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
@@ -263,6 +274,7 @@ def test(args, model):
     model.eval()
     sample_set = []
     img_ids = os.listdir(args.testImgDir)
+    img_ids.sort()
     cnt = len(img_ids)
     mse_diffs = 0.
     sad_diffs = 0.
@@ -285,12 +297,15 @@ def test(args, model):
         cur += 1
         print('[{}/{}] {}'.format(cur, cnt, img_info[0]))        
 
-        if args.crop_or_resize == "whole":
-            origin_pred_mattes = inference_img_whole(args, model, img, trimap)
-        elif args.crop_or_resize == "crop":
-            origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
-        else:
-            origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+
+            if args.crop_or_resize == "whole":
+                origin_pred_mattes = inference_img_whole(args, model, img, trimap)
+            elif args.crop_or_resize == "crop":
+                origin_pred_mattes = inference_img_by_crop(args, model, img, trimap)
+            else:
+                origin_pred_mattes = inference_img_by_resize(args, model, img, trimap)
 
         # only attention unknown region
         origin_pred_mattes[trimap == 255] = 1.
