@@ -4,7 +4,8 @@ import collections
 import os
 
 HOME = os.environ['HOME']
-model_path = "{}/.torch/models/vgg16-397923af.pth".format(HOME)
+#model_path = "{}/.torch/models/vgg16-397923af.pth".format(HOME)
+model_path = "/data/liuliang/deep_image_matting/train/vgg16-397923af.pth"
 if not os.path.exists(model_path):
     model = torchvision.models.vgg16(pretrained=True)
 assert(os.path.exists(model_path))
@@ -41,6 +42,15 @@ replace = {	u'features.0.bias'   : 'conv1_1.bias',
 		u'features.28.bias'  : 'conv5_3.bias'
 	}
 
+print(x['classifier.0.weight'].shape)
+print(x['classifier.0.bias'].shape)
+
+tmp1 = x['classifier.0.weight'].reshape(4096, 512, 7, 7)
+print(tmp1.shape)
+
+val['conv6_1.weight'] = tmp1
+val['conv6_1.bias'] = x['classifier.0.bias']
+
 for key in replace.keys():
     print(key, replace[key])
     val[replace[key]] = x[key]
@@ -50,4 +60,4 @@ y['state_dict'] = val
 y['epoch'] = 0
 if not os.path.exists('../model'):
     os.makedirs('../model')
-torch.save(y, '../model/vgg_state_dict.pth')
+torch.save(y, '../model/vgg_state_dict_fc6.pth')
