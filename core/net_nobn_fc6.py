@@ -28,9 +28,9 @@ class DeepMattingNobnFc6(nn.Module):
         self.conv5_1 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         self.conv5_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
-        self.conv6_1 = nn.Conv2d(512, 4096, kernel_size=7, padding=3,bias=True)
+        self.conv6_1 = nn.Conv2d(512, 2048, kernel_size=7, padding=3,bias=True)
         
-        self.deconv6_1 = nn.Conv2d(4096, 512, kernel_size=1,bias=True)
+        self.deconv6_1 = nn.Conv2d(2048, 512, kernel_size=1,bias=True)
         self.deconv5_1 = nn.Conv2d(512, 512, kernel_size=5, padding=2,bias=True)
         self.deconv4_1 = nn.Conv2d(512, 256, kernel_size=5, padding=2,bias=True)
         self.deconv3_1 = nn.Conv2d(256, 128, kernel_size=5, padding=2,bias=True)

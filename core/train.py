@@ -200,6 +200,7 @@ def train(args, model, optimizer, train_loader, epoch):
     t0 = time.time()
     #fout = open("train_loss.txt",'w')
     for iteration, batch in enumerate(train_loader, 1):
+        torch.cuda.empty_cache()
         img = Variable(batch[0])
         alpha = Variable(batch[1])
         fg = Variable(batch[2])

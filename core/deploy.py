@@ -3,6 +3,7 @@ import argparse
 import torch.nn as nn
 import net
 import net_nobn
+import net_nobn_fc6
 import resnet_aspp
 import cv2
 import os
@@ -24,7 +25,7 @@ def get_args():
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
     parser.add_argument('--stage', type=int, required=True, choices=[0,1,2,3], help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp"], help="net backbone")
+    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp", "vgg16_nobn_fc6"], help="net backbone")
     parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
     parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
@@ -198,6 +199,8 @@ def main():
         model = resnet_aspp.resnet50(args)
     elif args.arch == "vgg16_nobn":
         model = net_nobn.DeepMattingNobn(args)
+    elif args.arch == "vgg16_nobn_fc6":
+        model = net_nobn_fc6.DeepMattingNobnFc6(args)
     else:     
         model = net.DeepMatting(args)
     ckpt = torch.load(args.resume)
