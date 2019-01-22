@@ -10,9 +10,9 @@ python core/deploy.py \
     --imgDir=$DATA_ROOT/comp/image \
     --trimapDir=$DATA_ROOT/comp/trimap \
     --alphaDir=$DATA_ROOT/comp/alpha \
-    --saveDir=$MODEL_ROOT/result/tmp \
+    --saveDir=$MODEL_ROOT/result/batch1_stage1_cktp_e22 \
     --resume=$MODEL_ROOT/model/batch1_stage0_ckpt_e22.pth \
     --cuda \
     --stage=0 \
     --crop_or_resize=whole \
-    --max_size=320
+    --max_size=1600

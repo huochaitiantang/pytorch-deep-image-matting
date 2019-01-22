@@ -58,6 +58,6 @@ for key in replace.keys():
 y = {}
 y['state_dict'] = val
 y['epoch'] = 0
-if not os.path.exists('../model'):
-    os.makedirs('../model')
-torch.save(y, '../model/vgg_state_dict_test.pth')
+if not os.path.exists('./model'):
+    os.makedirs('./model')
+torch.save(y, './model/vgg_state_dict.pth')

@@ -1,8 +1,6 @@
 model/*
-result/*
 backup/*
 *.pth
-*.png
 *.jpg
 *.pyc
 *.log
