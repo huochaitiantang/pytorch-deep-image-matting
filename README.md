@@ -72,6 +72,25 @@ bash deploy.sh
 |   my-stage0  | 0.035 |          72.9           |
 |   my-stage1  | 0.033 |          72.2           |
 
+ 
+* visualization, origin image / prediction result / alpha ground truth
 
+* boy-1518482_1920_12.png
 
+  ![avatar](/result/example/boy-1518482_1920_12.png)
 
+* sieve-641426_1920_1.png
+
+  ![avatar](/result/example/sieve-641426_1920_1.png)
+
+* light-bulb-376930_1920_11.png
+
+  ![avatar](/result/example/light-bulb-376930_1920_11.png)
+
+* spring-289527_1920_15.png
+
+  ![avatar](/result/example/spring-289527_1920_15.png)
+
+* dandelion-1335575_1920_1.png
+
+  ![avatar](/result/example/dandelion-1335575_1920_1.png)
