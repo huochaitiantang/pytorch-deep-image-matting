@@ -2,9 +2,6 @@ import torch
 import argparse
 import torch.nn as nn
 import net
-import net_nobn
-import net_nobn_fc6
-import resnet_aspp
 import cv2
 import os
 from torchvision import transforms
@@ -25,12 +22,7 @@ def get_args():
     parser.add_argument('--alphaDir', type=str, default='', help="directory of gt")
     parser.add_argument('--stage', type=int, required=True, choices=[0,1,2,3], help="backbone stage")
     parser.add_argument('--not_strict', action='store_true', help='not copy ckpt strict?')
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp", "vgg16_nobn_fc6"], help="net backbone")
-    parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
-    parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
-    parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
-    parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
-    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
+    parser.add_argument('--crop_or_resize', type=str, default="whole", choices=["resize", "crop", "whole"], help="how manipulate image before test")
     parser.add_argument('--max_size', type=int, default=1600, help="max size of test image")
     args = parser.parse_args()
     print(args)
@@ -70,11 +62,6 @@ def inference_once(args, model, scale_img, scale_trimap, aligned=True):
         assert(scale_img.shape[0] == args.size_h)
         assert(scale_img.shape[1] == args.size_w)
 
-    if args.bilateralfilter:
-        #cv2.imwrite("result/debug/{}_before.png".format(img_info[0][:-4]), scale_img)
-        scale_img = cv2.bilateralFilter(scale_img, d=9, sigmaColor=100, sigmaSpace=100)
-        #cv2.imwrite("result/debug/{}_after.png".format(img_info[0][:-4]), scale_img)
-
     scale_grad = compute_gradient(scale_img)
     tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
     tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
@@ -86,13 +73,7 @@ def inference_once(args, model, scale_img, scale_trimap, aligned=True):
         tensor_grad = tensor_grad.cuda()
     #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
 
-    if args.in_chan == 3:
-        input_t = tensor_img
-    else:
-        if args.addGrad:
-            input_t = torch.cat((tensor_img, tensor_trimap, tensor_grad), 1)
-        else:
-            input_t = torch.cat((tensor_img, tensor_trimap), 1)
+    input_t = torch.cat((tensor_img, tensor_trimap), 1)
 
     # forward
     if args.stage <= 1:
@@ -195,14 +176,7 @@ def main():
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
 
-    if args.arch == "resnet50_aspp":
-        model = resnet_aspp.resnet50(args)
-    elif args.arch == "vgg16_nobn":
-        model = net_nobn.DeepMattingNobn(args)
-    elif args.arch == "vgg16_nobn_fc6":
-        model = net_nobn_fc6.DeepMattingNobnFc6(args)
-    else:     
-        model = net.DeepMatting(args)
+    model = net.VGG16(args)
     ckpt = torch.load(args.resume)
     if args.not_strict:
         model.load_state_dict(ckpt['state_dict'], strict=False)
@@ -279,12 +253,7 @@ def main():
 
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
         res = origin_pred_mattes.copy()
-        if args.guidedfilter:
-            radius = 50
-            eps = 1e-6
-            GF = cv2.ximgproc.createGuidedFilter(img, radius, eps)
-            GF.filter(origin_pred_mattes, res)
-            
+
         # only attention unknown region
         res[trimap == 255] = 255
         res[trimap == 0  ] = 0

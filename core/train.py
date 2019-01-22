@@ -6,11 +6,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
-import net_nobn
-import net_nobn_fc6
-import simple_net
-import resnet_aspp
-from data import MatTransform, MatDataset, MatDatasetOffline
+from data import MatTransform, MatDatasetOffline
 from torchvision import transforms
 import time
 import os
@@ -31,7 +27,6 @@ def get_args():
     parser.add_argument('--fgDir', type=str, required=True, help="directory of fg")
     parser.add_argument('--bgDir', type=str, required=True, help="directory of bg")
     parser.add_argument('--imgDir', type=str, default="", help="directory of img")
-    parser.add_argument('--dataOffline', action='store_true', help='use training data offline compoiste,  true require imDir not empty')
     parser.add_argument('--batchSize', type=int, default=64, help='training batch size')
     parser.add_argument('--nEpochs', type=int, default=20, help='number of epochs to train for')
     parser.add_argument('--step', type=int, default=10, help='epoch of learning decay')
@@ -46,19 +41,13 @@ def get_args():
     parser.add_argument('--ckptSaveFreq', type=int, default=10, help="checkpoint that model save to")
     parser.add_argument('--wl_weight', type=float, default=0.5, help="alpha loss weight")
     parser.add_argument('--stage', type=int, required=True, choices=[0, 1, 2, 3], help="training stage: 0(simple loss), 1, 2, 3")
-    parser.add_argument('--arch', type=str, required=True, choices=["vgg16","vgg16_nobn", "resnet50_aspp", "simple", "vgg16_nobn_fc6"], help="net backbone")
-    parser.add_argument('--in_chan', type=int, default=4, choices=[3, 4], help="input channel 3(no trimap) or 4")
     parser.add_argument('--testFreq', type=int, default=-1, help="test frequency")
     parser.add_argument('--testImgDir', type=str, default='', help="test image")
     parser.add_argument('--testTrimapDir', type=str, default='', help="test trimap")
     parser.add_argument('--testAlphaDir', type=str, default='', help="test alpha ground truth")
     parser.add_argument('--testResDir', type=str, default='', help="test result save to")
-    parser.add_argument('--bilateralfilter', action='store_true', help='use bilateralfilter before image input?')
-    parser.add_argument('--guidedfilter', action='store_true', help='use guidedfilter after prediction?')
-    parser.add_argument('--addGrad', action='store_true', help='use grad as a input channel?')
-    parser.add_argument('--crop_or_resize', type=str, default="resize", choices=["resize", "crop", "whole"], help="how manipulate image before test")
+    parser.add_argument('--crop_or_resize', type=str, default="whole", choices=["resize", "crop", "whole"], help="how manipulate image before test")
     parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
-    parser.add_argument('--grad_loss_weight', type=float, default=1., help="grad loss weight when grad == 0, from this value to 1.0")
     args = parser.parse_args()
     print(args)
     return args
@@ -70,11 +59,7 @@ def get_dataset(args):
     args.crop_h = [int(i) for i in args.crop_h.split(',')]
     args.crop_w = [int(i) for i in args.crop_w.split(',')]
 
-    if(args.dataOffline):
-        assert(args.imgDir != "")
-        train_set = MatDatasetOffline(args, train_transform)
-    else:
-        train_set = MatDataset(args, train_transform)
+    train_set = MatDatasetOffline(args, train_transform)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
@@ -89,20 +74,8 @@ def weight_init(m):
         m.bias.data.zero_()
 
 def build_model(args):
-    if args.arch == "resnet50_aspp":
-        model = resnet_aspp.resnet50(args)
-    elif args.arch == "vgg16_nobn":
-        model = net_nobn.DeepMattingNobn(args)
-        model.apply(weight_init)
-    elif args.arch == "vgg16_nobn_fc6":
-        model = net_nobn_fc6.DeepMattingNobnFc6(args)
-        model.apply(weight_init)
-    elif args.arch == "simple":
-        model = simple_net.DeepMattingSimple(args)
-        model.apply(weight_init)
-    else:
-        model = net.DeepMatting(args)
-        model.apply(weight_init)
+    model = net.VGG16(args)
+    model.apply(weight_init)
     
     start_epoch = 1
     if args.pretrain and os.path.isfile(args.pretrain):
@@ -136,7 +109,7 @@ def format_second(secs):
     return ss    
 
 
-def gen_simple_alpha_loss(alpha, trimap, pred_mattes, grad, args):
+def gen_simple_alpha_loss(alpha, trimap, pred_mattes, args):
     weighted = torch.zeros(trimap.shape).cuda()
     weighted[trimap == 128] = 1.
     alpha_f = alpha / 255.
@@ -144,12 +117,6 @@ def gen_simple_alpha_loss(alpha, trimap, pred_mattes, grad, args):
     diff = diff * weighted
     alpha_loss = torch.sqrt(diff ** 2 + 1e-12)
 
-    # a*x*x + 1.0 = grad_loss_weight
-    normal_grad = grad / 255.
-    grad_weighted = (1. - args.grad_loss_weight) * torch.pow(normal_grad, 2.) + args.grad_loss_weight
-    #print("grad_weightd:{} max:{}".format(grad_weighted.mean(), grad_weighted.max()))
-
-    alpha_loss = alpha_loss * grad_weighted
     alpha_loss_weighted = alpha_loss.sum() / (weighted.sum() + 1.)
 
     return alpha_loss_weighted
@@ -206,7 +173,6 @@ def train(args, model, optimizer, train_loader, epoch):
         fg = Variable(batch[2])
         bg = Variable(batch[3])
         trimap = Variable(batch[4])
-        grad = Variable(batch[5])
         img_info = batch[-1]
 
         if args.cuda:
@@ -215,7 +181,6 @@ def train(args, model, optimizer, train_loader, epoch):
             fg = fg.cuda()
             bg = bg.cuda()
             trimap = trimap.cuda()
-            grad = grad.cuda()
 
         #print("Shape: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{}".format(img.shape, alpha.shape, fg.shape, bg.shape, trimap.shape))
         #print("Val: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{} Img_info".format(img, alpha, fg, bg, trimap, img_info))
@@ -223,18 +188,11 @@ def train(args, model, optimizer, train_loader, epoch):
         adjust_learning_rate(args, optimizer, epoch)
         optimizer.zero_grad()
 
-        if args.in_chan == 3:
-            pred_mattes, pred_alpha = model(img)
-        else:
-            if args.addGrad:
-                pred_mattes, pred_alpha = model(torch.cat((img, trimap, grad), 1))
-            else:
-                pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
-
+        pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
 
         if args.stage == 0:
             # stage0 loss, simple alpha loss
-            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes, grad, args)
+            loss = gen_simple_alpha_loss(alpha, trimap, pred_mattes, args)
         elif args.stage == 1:
             # stage1 loss
             alpha_loss, comp_loss = gen_loss(img, alpha, fg, bg, trimap, pred_mattes)
@@ -381,7 +339,7 @@ def main():
 
     # training
     for epoch in range(start_epoch, args.nEpochs + 1):
-        train(args, model, optimizer, train_loader, epoch)
+        #train(args, model, optimizer, train_loader, epoch)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
             checkpoint(epoch, args.saveDir, model)
         if epoch > 0 and args.testFreq > 0 and epoch % args.testFreq == 0:
