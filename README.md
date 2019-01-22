@@ -64,13 +64,13 @@ bash deploy.sh
 * Test with method whole and max_size=1600.
 * The accuray in paper is hard to reach.
 
-|     model    |  MSE  | SAD(normalized by 1000) |
-| ------------ | ----- | ----------------------- |
-| paper-stage0 | 0.019 |          59.6           |
-| paper-stage1 | 0.017 |          54.6           |
-| paper-stage3 | 0.014 |          50.4           |
-|   my-stage0  | 0.035 |          72.9           |
-|   my-stage1  | 0.033 |          72.2           |
+|     model    |  MSE  | SAD(normalized by 1000) | link |
+| ------------ | ----- | ----------------------- | ---- |
+| paper-stage0 | 0.019 |          59.6           |      |
+| paper-stage1 | 0.017 |          54.6           |      |
+| paper-stage3 | 0.014 |          50.4           |      |
+|   my-stage0  | 0.035 |          72.9           | [download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)  |
+|   my-stage1  | 0.033 |          72.2           |      |
 
  
 * visualization, origin image / prediction result / alpha ground truth
