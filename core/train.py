@@ -339,7 +339,7 @@ def main():
 
     # training
     for epoch in range(start_epoch, args.nEpochs + 1):
-        #train(args, model, optimizer, train_loader, epoch)
+        train(args, model, optimizer, train_loader, epoch)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
             checkpoint(epoch, args.saveDir, model)
         if epoch > 0 and args.testFreq > 0 and epoch % args.testFreq == 0:

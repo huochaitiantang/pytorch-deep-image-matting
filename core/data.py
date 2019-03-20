@@ -39,7 +39,7 @@ class MatTransform(object):
         cropx, cropy = 0, 0
         if len(target[0]) > 0:
             rand_ind = np.random.randint(len(target[0]), size = 1)[0]
-            cropx, cropy = target[0][rand_ind], target[1][rand_ind]
+            cropy, cropx = target[0][rand_ind], target[1][rand_ind]
             cropx = min(max(cropx, 0), w - crop_w)
             cropy = min(max(cropy, 0), h - crop_h)
 

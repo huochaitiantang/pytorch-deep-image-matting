@@ -1,17 +1,15 @@
 #/bin/bash
 
-DESKTOP=/home/liuliang/Desktop
-MODEL_ROOT=$DESKTOP/pytorch-deep-image-matting-pure
-DATA_ROOT=$DESKTOP/dataset/matting/dataset_deep_image_matting/Test_set
+TEST_DATA_ROOT=/data/datasets/matting/Combined_Dataset/Test_set/comp
 
 python core/deploy.py \
     --size_h=320 \
     --size_w=320 \
-    --imgDir=$DATA_ROOT/comp/image \
-    --trimapDir=$DATA_ROOT/comp/trimap \
-    --alphaDir=$DATA_ROOT/comp/alpha \
-    --saveDir=$MODEL_ROOT/result/batch1_stage1_cktp_e22 \
-    --resume=$MODEL_ROOT/model/batch1_stage0_ckpt_e22.pth \
+    --imgDir=$TEST_DATA_ROOT/image \
+    --trimapDir=$TEST_DATA_ROOT/trimap \
+    --alphaDir=$TEST_DATA_ROOT/alpha \
+    --saveDir=result/stage0 \
+    --resume=model/stage0/ckpt_e19.pth \
     --cuda \
     --stage=0 \
     --crop_or_resize=whole \
