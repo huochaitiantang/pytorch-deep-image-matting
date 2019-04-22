@@ -73,9 +73,9 @@ bash deploy.sh
 | paper-stage0 | 0.019 | 59.6 |            |      |      |
 | paper-stage1 | 0.017 | 54.6 |            |      |      |
 | paper-stage3 | 0.014 | 50.4 |            |      |      |
-|   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)   |
-|   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |      |
-|   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |      |
+|   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)|
+|   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_fix_crop_error_e19_sad_70.7.pth)|
+|   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_norm_e12_sad_69.1.pth)|
 
  
 * visualization, origin image / prediction result(sad=72.9) / alpha ground truth
