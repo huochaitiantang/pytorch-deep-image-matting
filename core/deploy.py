@@ -62,8 +62,18 @@ def inference_once(args, model, scale_img, scale_trimap, aligned=True):
         assert(scale_img.shape[0] == args.size_h)
         assert(scale_img.shape[1] == args.size_w)
 
+    normalize = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean = [0.485, 0.456, 0.406],std = [0.229, 0.224, 0.225])
+    ])
+
+    scale_img_rgb = cv2.cvtColor(scale_img, cv2.COLOR_BGR2RGB)
+    # first, 0-255 to 0-1
+    # second, x-mean/std and HWC to CHW
+    tensor_img = normalize(scale_img_rgb).unsqueeze(0)
+
     scale_grad = compute_gradient(scale_img)
-    tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
+    #tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
     tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
     tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
 
@@ -73,7 +83,7 @@ def inference_once(args, model, scale_img, scale_trimap, aligned=True):
         tensor_grad = tensor_grad.cuda()
     #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
 
-    input_t = torch.cat((tensor_img, tensor_trimap), 1)
+    input_t = torch.cat((tensor_img, tensor_trimap / 255.), 1)
 
     # forward
     if args.stage <= 1:

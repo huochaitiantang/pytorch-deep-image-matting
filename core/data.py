@@ -71,9 +71,10 @@ def get_files(mydir):
 
 # Dataset not composite online
 class MatDatasetOffline(torch.utils.data.Dataset):
-    def __init__(self, args, transform=None):
+    def __init__(self, args, transform=None, normalize=None):
         self.samples=[]
         self.transform = transform
+        self.normalize = normalize
         self.args = args
         self.size_h = args.size_h
         self.size_w = args.size_w
@@ -144,6 +145,14 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         trimap = gen_trimap(alpha)
         grad = compute_gradient(img)
 
+        if self.normalize:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # first, 0-255 to 0-1
+            # second, x-mean/std and HWC to CHW
+            img_norm = self.normalize(img_rgb)
+        else:
+            img_norm = None
+
         #img_id = img_info[0].split('/')[-1]
         #cv2.imwrite("result/debug/{}_img.png".format(img_id), img)
         #cv2.imwrite("result/debug/{}_alpha.png".format(img_id), alpha)
@@ -158,7 +167,7 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         fg = torch.from_numpy(fg.astype(np.float32)).permute(2, 0, 1)
         bg = torch.from_numpy(bg.astype(np.float32)).permute(2, 0, 1)
 
-        return img, alpha, fg, bg, trimap, grad, img_info
+        return img, alpha, fg, bg, trimap, grad, img_norm, img_info
     
     def __len__(self):
         return len(self.samples)

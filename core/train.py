@@ -59,7 +59,12 @@ def get_dataset(args):
     args.crop_h = [int(i) for i in args.crop_h.split(',')]
     args.crop_w = [int(i) for i in args.crop_w.split(',')]
 
-    train_set = MatDatasetOffline(args, train_transform)
+    normalize = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean = [0.485, 0.456, 0.406],std = [0.229, 0.224, 0.225])
+    ])
+
+    train_set = MatDatasetOffline(args, train_transform, normalize)
     train_loader = DataLoader(dataset=train_set, num_workers=args.threads, batch_size=args.batchSize, shuffle=True)
 
     return train_loader
@@ -173,6 +178,7 @@ def train(args, model, optimizer, train_loader, epoch):
         fg = Variable(batch[2])
         bg = Variable(batch[3])
         trimap = Variable(batch[4])
+        img_norm = Variable(batch[6])
         img_info = batch[-1]
 
         if args.cuda:
@@ -181,6 +187,7 @@ def train(args, model, optimizer, train_loader, epoch):
             fg = fg.cuda()
             bg = bg.cuda()
             trimap = trimap.cuda()
+            img_norm = img_norm.cuda()
 
         #print("Shape: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{}".format(img.shape, alpha.shape, fg.shape, bg.shape, trimap.shape))
         #print("Val: Img:{} Alpha:{} Fg:{} Bg:{} Trimap:{} Img_info".format(img, alpha, fg, bg, trimap, img_info))
@@ -188,7 +195,7 @@ def train(args, model, optimizer, train_loader, epoch):
         adjust_learning_rate(args, optimizer, epoch)
         optimizer.zero_grad()
 
-        pred_mattes, pred_alpha = model(torch.cat((img, trimap), 1))
+        pred_mattes, pred_alpha = model(torch.cat((img_norm, trimap / 255.), 1))
 
         if args.stage == 0:
             # stage0 loss, simple alpha loss

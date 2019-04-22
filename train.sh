@@ -1,5 +1,5 @@
 #/bin/bash
-DATA_ROOT=/data/datasets/matting/Combined_Dataset
+DATA_ROOT=/home/liuliang/DISK_2T/datasets/matting/Combined_Dataset
 TRAIN_DATA_ROOT=$DATA_ROOT/Training_set/comp
 TEST_DATA_ROOT=$DATA_ROOT/Test_set/comp
 
@@ -12,14 +12,14 @@ python core/train.py \
     --fgDir=$TRAIN_DATA_ROOT/fg \
     --bgDir=$TRAIN_DATA_ROOT/bg \
     --imgDir=$TRAIN_DATA_ROOT/image \
-    --saveDir=model/stage0 \
+    --saveDir=model/stage0_norm \
     --batchSize=1 \
     --nEpochs=25 \
     --step=-1 \
     --lr=0.00001 \
     --wl_weight=0.5 \
     --threads=4 \
-    --printFreq=1 \
+    --printFreq=10 \
     --ckptSaveFreq=1 \
     --cuda \
     --stage=0 \
@@ -30,5 +30,5 @@ python core/train.py \
     --testAlphaDir=$TEST_DATA_ROOT/alpha \
     --testResDir=result/tmp \
     --crop_or_resize=whole \
-    --max_size=1600
-    #--resume=model/stage0/ckpt_e6.pth \
+    --max_size=1600 \
+    #--resume=model/stage0_norm/ckpt_e2.pth \
