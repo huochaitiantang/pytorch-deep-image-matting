@@ -62,18 +62,23 @@ bash deploy.sh
 
 ### Result
 * Test with method whole and max_size=1600.
-* The accuray in paper is hard to reach.
+* The performance in paper is hard to reach.
+* training epoch = 25.
+* SAD normalized by 1000.
+* best epoch is the epoch of the best result while training.
+* input img is normalized by mean=[0.485, 0.456, 0.406] and std=[0.229, 0.224, 0.225]
 
-|     model    |  MSE  | SAD(normalized by 1000) | link |
-| ------------ | ----- | ----------------------- | ---- |
-| paper-stage0 | 0.019 |          59.6           |      |
-| paper-stage1 | 0.017 |          54.6           |      |
-| paper-stage3 | 0.014 |          50.4           |      |
-|   my-stage0  | 0.035 |          72.9           | [download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)  |
-|   my-stage1  | 0.033 |          72.2           |      |
+|     model    |  MSE  |  SAD | best epoch | note | link |
+| ------------ | ----- | ---- | ---------- | ---- | ---- |
+| paper-stage0 | 0.019 | 59.6 |            |      |      |
+| paper-stage1 | 0.017 | 54.6 |            |      |      |
+| paper-stage3 | 0.014 | 50.4 |            |      |      |
+|   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)   |
+|   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |      |
+|   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |      |
 
  
-* visualization, origin image / prediction result / alpha ground truth
+* visualization, origin image / prediction result(sad=72.9) / alpha ground truth
 
 * boy-1518482_1920_12.png
 
