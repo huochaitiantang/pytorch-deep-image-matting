@@ -107,7 +107,7 @@ class VGG16(nn.Module):
             return pred_mattes, 0
 
         # Stage2 refine conv1
-        refine0 = torch.cat((x[:, :3, :, :], pred_mattes * 256),  1)
+        refine0 = torch.cat((x[:, :3, :, :], pred_mattes),  1)
         refine1 = F.relu(self.refine_conv1(refine0))
         refine2 = F.relu(self.refine_conv2(refine1))
         refine3 = F.relu(self.refine_conv3(refine2))
