@@ -7,13 +7,24 @@ from torchvision import transforms
 
 def gen_trimap(alpha):
     k_size = random.choice(range(1, 5))
+    iterations = np.random.randint(1, 20)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
-    dilated = cv2.dilate(alpha, kernel, iterations=np.random.randint(1, 20))
-    #eroded = cv2.erode(alpha, kernel)
+    dilated = cv2.dilate(alpha, kernel, iterations)
+    eroded = cv2.erode(alpha, kernel, iterations)
     trimap = np.zeros(alpha.shape)
     trimap.fill(128)
-    trimap[alpha >= 255] = 255
+    #trimap[alpha >= 255] = 255
+    trimap[eroded >= 255] = 255
     trimap[dilated <= 0] = 0
+
+    ''' 
+    alpha_unknown = alpha[trimap == 128]
+    num_all = alpha_unknown.size
+    num_0 = (alpha_unknown == 0).sum()
+    num_1 = (alpha_unknown == 255).sum()
+    print("Debug:  0 : {}/{} {:.3f}".format(num_0, num_all, float(num_0)/num_all))
+    print("Debug: 255: {}/{} {:.3f}".format(num_1, num_all, float(num_1)/num_all))
+    '''
 
     return trimap
 
@@ -27,27 +38,37 @@ def compute_gradient(img):
     grad=cv2.cvtColor(grad, cv2.COLOR_BGR2GRAY)
     return grad
 
+
 class MatTransform(object):
     def __init__(self, flip=False):
         self.flip = flip
 
-    def __call__(self, img, alpha, fg, bg, trimap, crop_h, crop_w):
+    def __call__(self, img, alpha, fg, bg, crop_h, crop_w):
         h, w = alpha.shape
 
+        # trimap is dilated maybe choose some bg region(0)
         # random crop in the unknown region center
-        target = np.where(trimap == 128)
-        cropx, cropy = 0, 0
-        if len(target[0]) > 0:
-            rand_ind = np.random.randint(len(target[0]), size = 1)[0]
-            cropy, cropx = target[0][rand_ind], target[1][rand_ind]
-            cropx = min(max(cropx, 0), w - crop_w)
-            cropy = min(max(cropy, 0), h - crop_h)
+        target = np.where((alpha > 0) & (alpha < 255))
+        delta_h = center_h = crop_h / 2
+        delta_w = center_w = crop_w / 2
 
-        img    = img   [cropy : cropy + crop_h, cropx : cropx + crop_w]
-        fg     = fg    [cropy : cropy + crop_h, cropx : cropx + crop_w]
-        bg     = bg    [cropy : cropy + crop_h, cropx : cropx + crop_w]
-        alpha  = alpha [cropy : cropy + crop_h, cropx : cropx + crop_w]
-        trimap = trimap[cropy : cropy + crop_h, cropx : cropx + crop_w]
+        if len(target[0]) > 0:
+            rand_ind = np.random.randint(len(target[0]))
+            center_h = min(max(target[0][rand_ind], delta_h), h - delta_h)
+            center_w = min(max(target[1][rand_ind], delta_w), w - delta_w)
+
+        # choose unknown point as center not as left-top
+        start_h = int(center_h - delta_h)
+        start_w = int(center_w - delta_w)
+        end_h   = int(center_h + delta_h)
+        end_w   = int(center_w + delta_w)
+
+        #print("Debug: center({},{}) start({},{}) end({},{}) alpha:{} alpha-len:{} unknown-len:{}".format(center_h, center_w, start_h, start_w, end_h, end_w, alpha[int(center_h), int(center_w)], alpha.size, len(target[0])))
+
+        img    = img   [start_h : end_h, start_w : end_w]
+        fg     = fg    [start_h : end_h, start_w : end_w]
+        bg     = bg    [start_h : end_h, start_w : end_w]
+        alpha  = alpha [start_h : end_h, start_w : end_w]
 
         # random flip
         if self.flip and random.random() < 0.5:
@@ -55,9 +76,8 @@ class MatTransform(object):
             alpha = cv2.flip(alpha, 1)
             fg = cv2.flip(fg, 1)
             bg = cv2.flip(bg, 1)
-            trimap = cv2.flip(trimap, 1)
 
-        return img, alpha, fg, bg, trimap
+        return img, alpha, fg, bg
 
 
 def get_files(mydir):
@@ -128,11 +148,10 @@ class MatDatasetOffline(torch.utils.data.Dataset):
             bg = cv2.resize(bg, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
             img = cv2.resize(img, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
             alpha = cv2.resize(alpha, (nbw, nbh), interpolation=cv2.INTER_LINEAR)
-        trimap = gen_trimap(alpha)
 
         # random crop(crop_h, crop_w) and flip
         if self.transform:
-            img, alpha, fg, bg, trimap = self.transform(img, alpha, fg, bg, trimap, cur_crop_h, cur_crop_w)
+            img, alpha, fg, bg = self.transform(img, alpha, fg, bg, cur_crop_h, cur_crop_w)
 
         # resize to (size_h, size_w)
         if self.size_h != img.shape[0] or self.size_w != img.shape[1]:
