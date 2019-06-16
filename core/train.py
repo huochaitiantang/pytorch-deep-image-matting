@@ -96,7 +96,7 @@ def build_model(args):
         start_epoch = ckpt['epoch']
         best_sad = ckpt['best_sad']
         model.load_state_dict(ckpt['state_dict'],strict=True)
-        print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, ckpt['epoch']))
+        print("=> loaded checkpoint '{}' (epoch {} bestSAD {:.3f})".format(args.resume, ckpt['epoch'], ckpt['best_sad']))
     
     return start_epoch, model, best_sad
 
@@ -363,7 +363,7 @@ def main():
             cur_sad = test(args, model)
             if cur_sad < best_sad:
                 best_sad = cur_sad
-                checkpoint(epochs, args.saveDir, model, best_sad, True)
+                checkpoint(epoch, args.saveDir, model, best_sad, True)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
             checkpoint(epoch, args.saveDir, model, best_sad)
 
