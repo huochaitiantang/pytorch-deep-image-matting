@@ -83,6 +83,7 @@ def build_model(args):
     model.apply(weight_init)
     
     start_epoch = 1
+    best_sad = 100000000.
     if args.pretrain and os.path.isfile(args.pretrain):
         print("=> loading pretrain '{}'".format(args.pretrain))
         ckpt = torch.load(args.pretrain)
@@ -93,10 +94,11 @@ def build_model(args):
         print("=> loading checkpoint '{}'".format(args.resume))
         ckpt = torch.load(args.resume)
         start_epoch = ckpt['epoch']
+        best_sad = ckpt['best_sad']
         model.load_state_dict(ckpt['state_dict'],strict=True)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.resume, ckpt['epoch']))
     
-    return start_epoch, model    
+    return start_epoch, model, best_sad
 
 
 def adjust_learning_rate(args, opt, epoch):
@@ -167,6 +169,11 @@ def gen_alpha_pred_loss(alpha, pred_alpha, trimap):
     return alpha_loss
 
 
+def ldata(loss):
+    #return loss.data
+    return loss.data[0]
+
+
 def train(args, model, optimizer, train_loader, epoch):
     model.train()
     t0 = time.time()
@@ -224,17 +231,17 @@ def train(args, model, optimizer, train_loader, epoch):
             exp_time = format_second(speed * (num_iter * (args.nEpochs - epoch + 1) - iteration))
 
             if args.stage == 0:
-                print("Stage0-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
+                print("Stage0-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
                 # stage 2
             elif args.stage == 1:
                 # stage 1
-                print("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], alpha_loss.data[0], comp_loss.data[0], speed, exp_time))
+                print("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(alpha_loss), ldata(comp_loss), speed, exp_time))
             elif args.stage == 2:
                 # stage 2
-                print("Stage2-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], speed, exp_time))
+                print("Stage2-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
             else:
                 # stage 3
-                print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], loss.data[0], loss1.data[0], loss2.data[0], speed, exp_time))
+                print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(loss1), ldata(loss2), speed, exp_time))
         #fout.write("{:.5f} {} {}\n".format(loss.data[0], img_info[0][0], img_info[1][0]))
         #fout.flush()
     #fout.close()
@@ -306,15 +313,20 @@ def test(args, model):
     if args.testAlphaDir != '':
         print("Eval-MSE: {}".format(mse_diffs / cnt))
         print("Eval-SAD: {}".format(sad_diffs / cnt))
+    return sad_diffs / cnt
 
 
-def checkpoint(epoch, save_dir, model):
-    model_out_path = "{}/ckpt_e{}.pth".format(save_dir, epoch)
+def checkpoint(epoch, save_dir, model, best_sad, best=False):
+
+    epoch_str = "best" if best else "e{}".format(epoch)
+    model_out_path = "{}/ckpt_{}.pth".format(save_dir, epoch_str)
+
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     torch.save({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
+        'best_sad': best_sad
     }, model_out_path )
     print("Checkpoint saved to {}".format(model_out_path))
 
@@ -337,7 +349,7 @@ def main():
     train_loader = get_dataset(args)
 
     print('===> Building model')
-    start_epoch, model = build_model(args)
+    start_epoch, model, best_sad = build_model(args)
 
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
     
@@ -347,10 +359,13 @@ def main():
     # training
     for epoch in range(start_epoch, args.nEpochs + 1):
         train(args, model, optimizer, train_loader, epoch)
-        if epoch > 0 and epoch % args.ckptSaveFreq == 0:
-            checkpoint(epoch, args.saveDir, model)
         if epoch > 0 and args.testFreq > 0 and epoch % args.testFreq == 0:
-            test(args, model)
+            cur_sad = test(args, model)
+            if cur_sad < best_sad:
+                best_sad = cur_sad
+                checkpoint(epochs, args.saveDir, model, best_sad, True)
+        if epoch > 0 and epoch % args.ckptSaveFreq == 0:
+            checkpoint(epoch, args.saveDir, model, best_sad)
 
 
 if __name__ == "__main__":
