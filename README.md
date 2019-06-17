@@ -2,6 +2,26 @@
 
 Non-official pytorch implementation of [deep image matting](http://openaccess.thecvf.com/content_cvpr_2017/papers/Xu_Deep_Image_Matting_CVPR_2017_paper.pdf)
 
+### Performance
+* Test with method whole and max_size=1600.
+* training epoch = 25.
+* SAD normalized by 1000.
+* best epoch is the epoch of the best result while training.
+* input img is normalized by mean=[0.485, 0.456, 0.406] and std=[0.229, 0.224, 0.225].
+* erode the alpha for trimap as well as dialte(for 0 and 1 balance) & crop the patch based on the center point(randomly selected from where alpha > 0 and alpha < 1)
+* The performance is close to paper.
+
+|     model    |  MSE  |  SAD | best epoch | note | link |
+| ------------ | ----- | ---- | ---------- | ---- | ---- |
+| paper-stage0 | 0.019 | 59.6 |            |      |      |
+| paper-stage1 | 0.017 | 54.6 |            |      |      |
+| paper-stage3 | 0.014 | 50.4 |            |      |      |
+|   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)|
+|   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_fix_crop_error_e19_sad_70.7.pth)|
+|   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_norm_e12_sad_69.1.pth)|
+|   my-stage0  | 0.020 | 62.0 |     14     | erode as well as dialte & center crop patch|  |
+|   my-stage1  |       |      |            | ongoing |  |
+
 ### Dependencies
 ```
 pip install -r requirements.txt
@@ -60,25 +80,9 @@ bash deploy.sh
   * crop_or_resize: test method: crop, resize, whole(as paper).
   * max_size: the max input size when test with whole method.
 
-### Result
-* Test with method whole and max_size=1600.
-* The performance in paper is hard to reach.
-* training epoch = 25.
-* SAD normalized by 1000.
-* best epoch is the epoch of the best result while training.
-* input img is normalized by mean=[0.485, 0.456, 0.406] and std=[0.229, 0.224, 0.225]
 
-|     model    |  MSE  |  SAD | best epoch | note | link |
-| ------------ | ----- | ---- | ---------- | ---- | ---- |
-| paper-stage0 | 0.019 | 59.6 |            |      |      |
-| paper-stage1 | 0.017 | 54.6 |            |      |      |
-| paper-stage3 | 0.014 | 50.4 |            |      |      |
-|   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)|
-|   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_fix_crop_error_e19_sad_70.7.pth)|
-|   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_norm_e12_sad_69.1.pth)|
-
- 
-* visualization, origin image / prediction result(sad=72.9) / alpha ground truth
+### Visualization
+* origin image / prediction result(sad=72.9) / alpha ground truth
 
 * boy-1518482_1920_12.png
 
