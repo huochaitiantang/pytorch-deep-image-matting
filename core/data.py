@@ -4,6 +4,7 @@ import os
 import random
 import numpy as np
 from torchvision import transforms
+import logging
 
 def gen_trimap(alpha):
     k_size = random.choice(range(1, 5))
@@ -100,6 +101,7 @@ class MatDatasetOffline(torch.utils.data.Dataset):
         self.size_w = args.size_w
         self.crop_h = args.crop_h
         self.crop_w = args.crop_w
+        self.logger = logging.getLogger("DeepImageMatting")
         assert(len(self.crop_h) == len(self.crop_w))
         
         fg_paths = get_files(self.args.fgDir)
@@ -115,7 +117,7 @@ class MatDatasetOffline(torch.utils.data.Dataset):
             assert(os.path.exists(bg_path))
             assert(os.path.exists(img_path))
             self.samples.append((alpha_path, fg_path, bg_path, img_path))
-        print("\t--Valid Samples: {}".format(self.cnt))
+        self.logger.info("MatDatasetOffline Samples: {}".format(self.cnt))
         assert(self.cnt > 0)
 
     def __getitem__(self,index):

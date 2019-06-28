@@ -14,6 +14,29 @@ import cv2
 import numpy as np
 from deploy import inference_img_by_crop, inference_img_by_resize, inference_img_whole
 import math
+import logging
+
+
+def get_logger(fname):
+    assert(fname != "")
+    logger = logging.getLogger("DeepImageMatting")
+    logger.setLevel(level = logging.INFO)
+    formatter = logging.Formatter("%(asctime)s-%(filename)s:%(lineno)d-%(levelname)s-%(message)s")
+
+    # log file stream
+    handler = logging.FileHandler(fname)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(formatter)
+
+    # log console stream
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(formatter)
+
+    logger.addHandler(handler)
+    logger.addHandler(console)
+
+    return logger
 
 
 def get_args():
@@ -48,8 +71,8 @@ def get_args():
     parser.add_argument('--testResDir', type=str, default='', help="test result save to")
     parser.add_argument('--crop_or_resize', type=str, default="whole", choices=["resize", "crop", "whole"], help="how manipulate image before test")
     parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
+    parser.add_argument('--log', type=str, default='tmplog.txt', help="log file")
     args = parser.parse_args()
-    print(args)
     return args
 
 
@@ -78,25 +101,25 @@ def weight_init(m):
         m.weight.data.fill_(1)
         m.bias.data.zero_()
 
-def build_model(args):
+def build_model(args, logger):
     model = net.VGG16(args)
     model.apply(weight_init)
     
     start_epoch = 1
     best_sad = 100000000.
     if args.pretrain and os.path.isfile(args.pretrain):
-        print("=> loading pretrain '{}'".format(args.pretrain))
+        logger.info("loading pretrain '{}'".format(args.pretrain))
         ckpt = torch.load(args.pretrain)
         model.load_state_dict(ckpt['state_dict'],strict=False)
-        print("=> loaded pretrain '{}' (epoch {})".format(args.pretrain, ckpt['epoch']))
+        logger.info("loaded pretrain '{}' (epoch {})".format(args.pretrain, ckpt['epoch']))
     
     if args.resume and os.path.isfile(args.resume):
-        print("=> loading checkpoint '{}'".format(args.resume))
+        logger.info("=> loading checkpoint '{}'".format(args.resume))
         ckpt = torch.load(args.resume)
         start_epoch = ckpt['epoch']
         best_sad = ckpt['best_sad']
         model.load_state_dict(ckpt['state_dict'],strict=True)
-        print("=> loaded checkpoint '{}' (epoch {} bestSAD {:.3f})".format(args.resume, ckpt['epoch'], ckpt['best_sad']))
+        logger.info("=> loaded checkpoint '{}' (epoch {} bestSAD {:.3f})".format(args.resume, ckpt['epoch'], ckpt['best_sad']))
     
     return start_epoch, model, best_sad
 
@@ -174,7 +197,7 @@ def ldata(loss):
     return loss.data[0]
 
 
-def train(args, model, optimizer, train_loader, epoch):
+def train(args, model, optimizer, train_loader, epoch, logger):
     model.train()
     t0 = time.time()
     #fout = open("train_loss.txt",'w')
@@ -231,23 +254,23 @@ def train(args, model, optimizer, train_loader, epoch):
             exp_time = format_second(speed * (num_iter * (args.nEpochs - epoch + 1) - iteration))
 
             if args.stage == 0:
-                print("Stage0-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
+                logger.info("Stage0-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
                 # stage 2
             elif args.stage == 1:
                 # stage 1
-                print("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(alpha_loss), ldata(comp_loss), speed, exp_time))
+                logger.info("Stage1-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Alpha:{:.5f} Comp:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(alpha_loss), ldata(comp_loss), speed, exp_time))
             elif args.stage == 2:
                 # stage 2
-                print("Stage2-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
+                logger.info("Stage2-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), speed, exp_time))
             else:
                 # stage 3
-                print("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(loss1), ldata(loss2), speed, exp_time))
+                logger.info("Stage3-Epoch[{}/{}]({}/{}) Lr:{:.8f} Loss:{:.5f} Stage1:{:.5f} Stage2:{:.5f} Speed:{:.5f}s/iter {}".format(epoch, args.nEpochs, iteration, num_iter, optimizer.param_groups[0]['lr'], ldata(loss), ldata(loss1), ldata(loss2), speed, exp_time))
         #fout.write("{:.5f} {} {}\n".format(loss.data[0], img_info[0][0], img_info[1][0]))
         #fout.flush()
     #fout.close()
 
 
-def test(args, model):
+def test(args, model, logger):
     model.eval()
     sample_set = []
     img_ids = os.listdir(args.testImgDir)
@@ -272,7 +295,7 @@ def test(args, model):
         img_info = (img_path.split('/')[-1], img.shape[0], img.shape[1])
 
         cur += 1
-        print('[{}/{}] {}'.format(cur, cnt, img_info[0]))        
+        logger.info('[{}/{}] {}'.format(cur, cnt, img_info[0]))        
 
         with torch.no_grad():
             torch.cuda.empty_cache()
@@ -302,21 +325,21 @@ def test(args, model):
             sad_diff = np.abs(origin_pred_mattes - alpha).sum()
             mse_diffs += mse_diff
             sad_diffs += sad_diff
-            print("sad:{} mse:{}".format(sad_diff, mse_diff))
+            logger.info("sad:{} mse:{}".format(sad_diff, mse_diff))
 
         origin_pred_mattes = (origin_pred_mattes * 255).astype(np.uint8)
         if not os.path.exists(args.testResDir):
             os.makedirs(args.testResDir)
         cv2.imwrite(os.path.join(args.testResDir, img_info[0]), origin_pred_mattes)
 
-    print("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))
+    logger.info("Avg-Cost: {} s/image".format((time.time() - t0) / cnt))
     if args.testAlphaDir != '':
-        print("Eval-MSE: {}".format(mse_diffs / cnt))
-        print("Eval-SAD: {}".format(sad_diffs / cnt))
+        logger.info("Eval-MSE: {}".format(mse_diffs / cnt))
+        logger.info("Eval-SAD: {}".format(sad_diffs / cnt))
     return sad_diffs / cnt
 
 
-def checkpoint(epoch, save_dir, model, best_sad, best=False):
+def checkpoint(epoch, save_dir, model, best_sad, logger, best=False):
 
     epoch_str = "best" if best else "e{}".format(epoch)
     model_out_path = "{}/ckpt_{}.pth".format(save_dir, epoch_str)
@@ -328,15 +351,15 @@ def checkpoint(epoch, save_dir, model, best_sad, best=False):
         'state_dict': model.state_dict(),
         'best_sad': best_sad
     }, model_out_path )
-    print("Checkpoint saved to {}".format(model_out_path))
+    logger.info("Checkpoint saved to {}".format(model_out_path))
 
 
 def main():
 
-    print("===> Loading args")
     args = get_args()
+    logger = get_logger(args.log)
+    logger.info("Loading args: \n{}".format(args))
 
-    print("===> Environment init")
     #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     if args.cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
@@ -345,11 +368,11 @@ def main():
     else:
         torch.manual_seed(args.seed)
 
-    print('===> Loading datasets')
+    logger.info("Loading dataset:")
     train_loader = get_dataset(args)
 
-    print('===> Building model')
-    start_epoch, model, best_sad = build_model(args)
+    logger.info("Building model:")
+    start_epoch, model, best_sad = build_model(args, logger)
 
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
     
@@ -358,14 +381,14 @@ def main():
 
     # training
     for epoch in range(start_epoch, args.nEpochs + 1):
-        train(args, model, optimizer, train_loader, epoch)
+        train(args, model, optimizer, train_loader, epoch, logger)
         if epoch > 0 and args.testFreq > 0 and epoch % args.testFreq == 0:
-            cur_sad = test(args, model)
+            cur_sad = test(args, model, logger)
             if cur_sad < best_sad:
                 best_sad = cur_sad
-                checkpoint(epoch, args.saveDir, model, best_sad, True)
+                checkpoint(epoch, args.saveDir, model, best_sad, logger, True)
         if epoch > 0 and epoch % args.ckptSaveFreq == 0:
-            checkpoint(epoch, args.saveDir, model, best_sad)
+            checkpoint(epoch, args.saveDir, model, best_sad, logger)
 
 
 if __name__ == "__main__":
