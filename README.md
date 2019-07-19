@@ -19,8 +19,9 @@ Non-official pytorch implementation of [deep image matting](http://openaccess.th
 |   my-stage0  | 0.035 | 72.9 |     22     | with crop error and with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.0/my_stage0_sad_72.9.pth)|
 |   my-stage0  | 0.031 | 70.7 |     19     | with no normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_fix_crop_error_e19_sad_70.7.pth)|
 |   my-stage0  | 0.027 | 69.1 |     12     | fix crop error and with normalized input |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.1/stage0_norm_e12_sad_69.1.pth)|
-|   my-stage0  | 0.020 | 62.0 |     14     | erode as well as dialte & center crop patch|  |
-|   my-stage1  |       |      |            | ongoing |  |
+|   my-stage0  | 0.020 | 62.0 |     14     | erode as well as dialte & center crop patch|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage0_norm_balance_sad_62.0.pth)|
+|   my-stage1  | 0.019 | 58.7 |     18     | erode as well as dialte & center crop patch|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage1_norm_balance_sad_58.7.pth)|
+|   my-stage2  | 0.019 | 57.7 |     22     | erode as well as dialte & center crop patch & pretrain stage1-sad-58.7|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage2_norm_balance_sad_57.9.pth)|
 
 ### Dependencies
 ```
