@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
+import resnet
 from data import MatTransform, MatDatasetOffline
 from torchvision import transforms
 import time
@@ -72,6 +73,7 @@ def get_args():
     parser.add_argument('--crop_or_resize', type=str, default="whole", choices=["resize", "crop", "whole"], help="how manipulate image before test")
     parser.add_argument('--max_size', type=int, default=1312, help="max size of test image")
     parser.add_argument('--log', type=str, default='tmplog.txt', help="log file")
+    parser.add_argument('--arch', type=str, default='vgg', help="network structure")
     args = parser.parse_args()
     return args
 
@@ -102,8 +104,11 @@ def weight_init(m):
         m.bias.data.zero_()
 
 def build_model(args, logger):
-    model = net.VGG16(args)
-    model.apply(weight_init)
+    if args.arch[:6] == 'resnet':
+        model = getattr(resnet, args.arch)(pretrained=False, args=args)
+    else:
+        model = net.VGG16(args)
+        model.apply(weight_init)
     
     start_epoch = 1
     best_sad = 100000000.
