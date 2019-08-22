@@ -7,11 +7,11 @@ from torchvision import transforms
 import logging
 
 def gen_trimap(alpha):
-    k_size = random.choice(range(1, 5))
-    iterations = np.random.randint(1, 20)
+    k_size = random.choice(range(2, 5))
+    iterations = np.random.randint(5, 15)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
-    dilated = cv2.dilate(alpha, kernel, iterations)
-    eroded = cv2.erode(alpha, kernel, iterations)
+    dilated = cv2.dilate(alpha, kernel, iterations=iterations)
+    eroded = cv2.erode(alpha, kernel, iterations=iterations)
     trimap = np.zeros(alpha.shape)
     trimap.fill(128)
     #trimap[alpha >= 255] = 255
