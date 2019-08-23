@@ -5,3 +5,4 @@ backup/*
 *.pyc
 *.log
 *.swp
+result/*

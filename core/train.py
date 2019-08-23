@@ -6,7 +6,6 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import net
-import resnet
 from data import MatTransform, MatDatasetOffline
 from torchvision import transforms
 import time
@@ -104,11 +103,8 @@ def weight_init(m):
         m.bias.data.zero_()
 
 def build_model(args, logger):
-    if args.arch[:6] == 'resnet':
-        model = getattr(resnet, args.arch)(pretrained=False, args=args)
-    else:
-        model = net.VGG16(args)
-        model.apply(weight_init)
+    model = net.VGG16(args)
+    model.apply(weight_init)
     
     start_epoch = 1
     best_sad = 100000000.
