@@ -12,8 +12,8 @@ import time
 def get_args():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch Super Res Example')
-    parser.add_argument('--size_h', type=int, required=True, help="height size of input image")
-    parser.add_argument('--size_w', type=int, required=True, help="width size of input image")
+    parser.add_argument('--size_h', type=int, default=320, help="height size of input image")
+    parser.add_argument('--size_w', type=int, default=320, help="width size of input image")
     parser.add_argument('--imgDir', type=str, required=True, help="directory of image")
     parser.add_argument('--trimapDir', type=str, required=True, help="directory of trimap")
     parser.add_argument('--cuda', action='store_true', help='use cuda?')

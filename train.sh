@@ -3,6 +3,7 @@ DATA_ROOT=/home/liuliang/DISK_2T/datasets/matting/Combined_Dataset
 TRAIN_DATA_ROOT=$DATA_ROOT/Training_set/comp
 TEST_DATA_ROOT=$DATA_ROOT/Test_set/comp
 
+CUDA_VISIBLE_DEVICES=0 \
 python core/train.py \
     --crop_h=320,480,640 \
     --crop_w=320,480,640 \
@@ -12,18 +13,18 @@ python core/train.py \
     --fgDir=$TRAIN_DATA_ROOT/fg \
     --bgDir=$TRAIN_DATA_ROOT/bg \
     --imgDir=$TRAIN_DATA_ROOT/image \
-    --saveDir=model/stage0_norm \
+    --saveDir=model/stage1 \
     --batchSize=1 \
-    --nEpochs=25 \
+    --nEpochs=12 \
     --step=-1 \
     --lr=0.00001 \
     --wl_weight=0.5 \
     --threads=4 \
     --printFreq=10 \
     --ckptSaveFreq=1 \
-    --cuda \
-    --stage=0 \
     --pretrain=model/vgg_state_dict.pth \
+    --cuda \
+    --stage=1 \
     --testFreq=1 \
     --testImgDir=$TEST_DATA_ROOT/image \
     --testTrimapDir=$TEST_DATA_ROOT/trimap \
@@ -31,4 +32,6 @@ python core/train.py \
     --testResDir=result/tmp \
     --crop_or_resize=whole \
     --max_size=1600 \
-    #--resume=model/stage0_norm/ckpt_e2.pth \
+    --log=stage1.txt \
+
+    #--resume=model/stage1/ckpt_e1.pth \
