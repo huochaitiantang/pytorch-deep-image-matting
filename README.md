@@ -2,17 +2,17 @@
 This repository includes the non-official pytorch implementation of [deep image matting](http://openaccess.thecvf.com/content_cvpr_2017/papers/Xu_Deep_Image_Matting_CVPR_2017_paper.pdf).
 
 ## Performance
-|model       |SAD |MSE  |Grad|Conn| link |
-|------------|----|-----|----|----| ---- |
-|paper-stage1|54.6|0.017|36.7|55.3|      |
-|my-stage1   |54.42|0.0175|35.01|54.85|[download]()|
+|model       |SAD      |MSE      |Grad     |Conn     | link |
+|------------|---------|---------|---------|---------| ---- |
+|paper-stage1|  54.6   |**0.017**|  36.7   |  55.3   |      |
+|my-stage1   |**54.42**|  0.0175 |**35.01**|**54.85**|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth)|
 * Lower metrics show better performance. 
 * Training batch=1, images=43100, epochs=25， it takes about 2 days.
 * Test maxSize=1600.
 
 
 ## Updates
-* 2019.09.09: conv6 kernel size from 1x1 to 3x3. Get [Stage1-SAD=54.4](). **The performance of stage1 is as good as paper**. While using model released before this day, please change the kernel_size=1 and padding=0 of conv6 in file core/net.py.
+* 2019.09.09: conv6 kernel size from 1x1 to 3x3. Get [Stage1-SAD=54.4](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth). **The performance of stage1 is as good as paper**. While using model released before this day, please change the kernel_size=1 and padding=0 of conv6 in file core/net.py.
 * 2019.08.24: Fix cv2.dilate and cv2.erode iterations is set default = 1 and set triamp dilate and erode as the test 1k tirmap (k_size:2-5, iterations:5-15). Get [Stage1-SAD=57.1](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.3/stage1_sad_57.1.pth).
 * 2019.07.05: Training with refine stage, fixed encoder-decoder. Get [Stage2-SAD=57.7](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage2_norm_balance_sad_57.9.pth).
 * 2019.06.23: Training with alpha loss and composite loss. Get [Stage1-SAD=58.7](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage1_norm_balance_sad_58.7.pth).
