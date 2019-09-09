@@ -22,7 +22,10 @@ class VGG16(nn.Module):
         self.conv5_1 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         self.conv5_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
-        self.conv6_1 = nn.Conv2d(512, 512, kernel_size=1, padding=0,bias=True)
+
+        # model released before 2019.09.09 should use kernel_size=1 & padding=0
+        #self.conv6_1 = nn.Conv2d(512, 512, kernel_size=1, padding=0,bias=True)
+        self.conv6_1 = nn.Conv2d(512, 512, kernel_size=3, padding=1,bias=True)
         
         self.deconv6_1 = nn.Conv2d(512, 512, kernel_size=1,bias=True)
         self.deconv5_1 = nn.Conv2d(512, 512, kernel_size=5, padding=2,bias=True)
