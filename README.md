@@ -60,7 +60,7 @@ Run the following command and start the test of Adobe-1k-Composite-Dataset
 ## Evaluation
 Please eval with [official Matlab Code](https://docs.google.com/uc?export=download&id=1euP9WmWve3c7EgOwRqgHfnp2H8NXH3OM). and get the SAD, MSE, Grad Conn.
 
-### Visualization
+## Visualization
 Running model is Stage1-SAD=57.1, please click to view whole images.
 
 | Image | Trimap | Pred-Alpha | GT-Alpha |
@@ -70,3 +70,6 @@ Running model is Stage1-SAD=57.1, please click to view whole images.
 |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/image/light-bulb-376930_1920_11.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/trimap/light-bulb-376930_1920_11.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/pred/light-bulb-376930_1920_11.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/alpha/light-bulb-376930_1920_11.png)
 |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/image/sieve-641426_1920_1.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/trimap/sieve-641426_1920_1.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/pred/sieve-641426_1920_1.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/alpha/sieve-641426_1920_1.png)
 |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/image/spring-289527_1920_15.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/trimap/spring-289527_1920_15.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/pred/spring-289527_1920_15.png) |![image](https://github.com/huochaitiantang/pytorch-deep-image-matting/blob/master/result/example/alpha/spring-289527_1920_15.png)
+
+## Disclaimer
+As covered by the ADOBE IMAGE DATASET LICENSE AGREEMENT, the pre-trained models included in this repository can only be used and distributed for non-commercial purposes.
