@@ -4,14 +4,17 @@ This repository includes the non-official pytorch implementation of [deep image 
 ## Performance
 |model       |SAD      |MSE      |Grad     |Conn     | link |
 |------------|---------|---------|---------|---------| ---- |
-|paper-stage1|  54.6   |**0.017**|  36.7   |  55.3   |      |
-|my-stage1   |**54.42**|  0.0175 |**35.01**|**54.85**|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth)|
+|stage0-paper|  59.6   |  0.019  |  40.5   |  59.3   |      |
+|stage1-paper|  54.6   |**0.017**|  36.7   |  55.3   |      |
+|stage0-our  |  56.01  |  0.0173 |**33.71**|  57.57  |      |
+|stage1-our  |**54.42**|  0.0175 |  35.01  |**54.85**|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth)|
 * Lower metrics show better performance. 
 * Training batch=1, images=43100, epochs=25， it takes about 2 days.
 * Test maxSize=1600.
 
 
 ## Updates
+* 2019.10.29: conduct stage0 experiment using current code. Get Stage0-SAD=56.0.
 * 2019.09.09: conv6 kernel size from 1x1 to 3x3. Get [Stage1-SAD=54.4](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth). **The performance of stage1 is as good as paper**. While using model released before this day, please change the kernel_size=1 and padding=0 of conv6 in file core/net.py.
 * 2019.08.24: Fix cv2.dilate and cv2.erode iterations is set default = 1 and set triamp dilate and erode as the test 1k tirmap (k_size:2-5, iterations:5-15). Get [Stage1-SAD=57.1](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.3/stage1_sad_57.1.pth).
 * 2019.07.05: Training with refine stage, fixed encoder-decoder. Get [Stage2-SAD=57.7](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.2/stage2_norm_balance_sad_57.9.pth).
