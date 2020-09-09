@@ -84,22 +84,27 @@ class VGG16(nn.Module):
 
         # Stage 5d
         x5d = F.max_unpool2d(x61d,id5, kernel_size=2, stride=2)
+        x5d = x5d + x53
         x51d = F.relu(self.deconv5_1(x5d))
 
         # Stage 4d
         x4d = F.max_unpool2d(x51d, id4, kernel_size=2, stride=2)
+        x4d = x4d + x43
         x41d = F.relu(self.deconv4_1(x4d))
 
         # Stage 3d
         x3d = F.max_unpool2d(x41d, id3, kernel_size=2, stride=2)
+        x3d = x3d + x33
         x31d = F.relu(self.deconv3_1(x3d))
 
         # Stage 2d
         x2d = F.max_unpool2d(x31d, id2, kernel_size=2, stride=2)
+        x2d = x2d + x22
         x21d = F.relu(self.deconv2_1(x2d))
 
         # Stage 1d
         x1d = F.max_unpool2d(x21d, id1, kernel_size=2, stride=2)
+        x1d = x1d + x12
         x12d = F.relu(self.deconv1_1(x1d))
 
         # Should add sigmoid? github repo add so.

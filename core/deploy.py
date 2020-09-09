@@ -72,15 +72,15 @@ def inference_once(args, model, scale_img, scale_trimap, aligned=True):
     # second, x-mean/std and HWC to CHW
     tensor_img = normalize(scale_img_rgb).unsqueeze(0)
 
-    scale_grad = compute_gradient(scale_img)
+    #scale_grad = compute_gradient(scale_img)
     #tensor_img = torch.from_numpy(scale_img.astype(np.float32)[np.newaxis, :, :, :]).permute(0, 3, 1, 2)
     tensor_trimap = torch.from_numpy(scale_trimap.astype(np.float32)[np.newaxis, np.newaxis, :, :])
-    tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
+    #tensor_grad = torch.from_numpy(scale_grad.astype(np.float32)[np.newaxis, np.newaxis, :, :])
 
     if args.cuda:
         tensor_img = tensor_img.cuda()
         tensor_trimap = tensor_trimap.cuda()
-        tensor_grad = tensor_grad.cuda()
+        #tensor_grad = tensor_grad.cuda()
     #print('Img Shape:{} Trimap Shape:{}'.format(img.shape, trimap.shape))
 
     input_t = torch.cat((tensor_img, tensor_trimap / 255.), 1)
@@ -238,22 +238,6 @@ def main():
             assert(os.path.exists(alpha_name))
             alpha = cv2.imread(alpha_name)[:, :, 0] / 255.
             assert(alpha.shape == origin_pred_mattes.shape)
-
-            #x1 = (alpha[trimap == 255] == 1.0).sum() # x3
-            #x2 = (alpha[trimap == 0] == 0.0).sum() # x5
-            #x3 = (trimap == 255).sum()
-            #x4 = (trimap == 128).sum()
-            #x5 = (trimap == 0).sum()
-            #x6 = trimap.size # sum(x3,x4,x5)
-            #x7 = (alpha[trimap == 255] < 1.0).sum() # 0
-            #x8 = (alpha[trimap == 0] > 0).sum() #
-
-            #print(x1, x2, x3, x4, x5, x6, x7, x8)
-            #assert(x1 == x3)
-            #assert(x2 == x5)
-            #assert(x6 == x3 + x4 + x5)
-            #assert(x7 == 0)
-            #assert(x8 == 0)
 
             mse_diff = ((origin_pred_mattes - alpha) ** 2).sum() / pixel
             sad_diff = np.abs(origin_pred_mattes - alpha).sum()

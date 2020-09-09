@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args = parser.parse_args()
     args.cuda = True
-    args.resume = "model/stage1_sad_57.1.pth"
+    args.resume = "model/stage1_skip_sad_52.9.pth"
     args.stage = 1
     args.crop_or_resize = "whole"
     args.max_size = 1600

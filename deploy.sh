@@ -8,7 +8,7 @@ python core/deploy.py \
     --trimapDir=$TEST_DATA_ROOT/trimap \
     --alphaDir=$TEST_DATA_ROOT/alpha \
     --saveDir=result/tmp \
-    --resume=model/stage1_sad_57.1.pth \
+    --resume=model/stage1_skip_sad_52.9.pth \
     --cuda \
     --stage=1 \
     --crop_or_resize=whole \
