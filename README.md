@@ -2,18 +2,22 @@
 This repository includes the non-official pytorch implementation of [deep image matting](http://openaccess.thecvf.com/content_cvpr_2017/papers/Xu_Deep_Image_Matting_CVPR_2017_paper.pdf).
 
 ## Performance
-|model       |SAD      |MSE      |Grad     |Conn     | link |
+|model       |SAD &darr;|MSE &darr; |Grad &darr; |Conn &darr; | link |
 |------------|---------|---------|---------|---------| ---- |
 |stage0-paper|  59.6   |  0.019  |  40.5   |  59.3   |      |
 |stage1-paper|  54.6   |**0.017**|  36.7   |  55.3   |      |
-|stage0-our  |  56.01  |  0.0173 |**33.71**|  57.57  |      |
-|stage1-our  |**54.42**|  0.0175 |  35.01  |**54.85**|[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth)|
+|stage0-our  |  56.01  |  0.0173 |  33.71  |  57.57  |      |
+|stage1-our  |  54.42  |  0.0175 |  35.01  |  54.85  |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth)|
+|**stage1-our-skip** |**52.99**| 0.0171 | **31.56** | **53.24** |[download](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/V1.5/stage1_skip_sad_52.9.pth)
 * Lower metrics show better performance. 
-* Training batch=1, images=43100, epochs=25， it takes about 2 days.
+* Training batch=1, images=43100, epochs=12 for stage1-our-skip model, it takes about 1 days.
 * Test maxSize=1600.
+* GPU memory >= 10GB
 
 
 ## Updates
+* 2020.09.09: run the demo.py with the latest model (stage1-skip-sad-52.9.pth), and update the visualization results.
+* 2020.09.09: **adopt VGG-16 backbone with skip connection**, and we **get better performance with less training costs** (12 epochs), Get [Stage1-Skip-SAD=52.9](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/V1.5/stage1_skip_sad_52.9.pth)
 * 2019.10.29: conduct stage0 experiment using current code. Get Stage0-SAD=56.0.
 * 2019.09.09: conv6 kernel size from 1x1 to 3x3. Get [Stage1-SAD=54.4](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.4/stage1_sad_54.4.pth). **The performance of stage1 is as good as paper**. While using model released before this day, please change the kernel_size=1 and padding=0 of conv6 in file core/net.py.
 * 2019.08.24: Fix cv2.dilate and cv2.erode iterations is set default = 1 and set triamp dilate and erode as the test 1k tirmap (k_size:2-5, iterations:5-15). Get [Stage1-SAD=57.1](https://github.com/huochaitiantang/pytorch-deep-image-matting/releases/download/v1.3/stage1_sad_57.1.pth).
@@ -64,7 +68,7 @@ Run the following command and start the test of Adobe-1k-Composite-Dataset
 Please eval with [official Matlab Code](https://docs.google.com/uc?export=download&id=1euP9WmWve3c7EgOwRqgHfnp2H8NXH3OM). and get the SAD, MSE, Grad Conn.
 
 ## Visualization
-Running model is Stage1-SAD=57.1, please click to view whole images.
+Running model is Stage1-Skip-SAD=52.9, please click to view whole images.
 
 | Image | Trimap | Pred-Alpha | GT-Alpha |
 |---|---|---|---|
