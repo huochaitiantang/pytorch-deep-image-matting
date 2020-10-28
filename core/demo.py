@@ -5,6 +5,30 @@ import cv2
 import os
 import numpy as np
 from deploy import inference_img_whole
+import pickle
+
+'''
+    Load model exported by python2 with python3 will cause error:
+        ascii' codec can't decode byte 0xda in position 5
+    The following codes will fix the bug
+'''
+def my_torch_load(fname):
+    try:
+        ckpt = torch.load(fname)
+        return ckpt
+    except Exception as e:
+        print("Load Error:{}\nTry Load Again...".format(e))
+        class C:
+            pass
+        def c_load(ss):
+            return pickle.load(ss, encoding='latin1')
+        def c_unpickler(ss):
+            return pickle.Unpickler(ss, encoding='latin1')
+        c = C
+        c.load = c_load
+        c.Unpickler = c_unpickler
+        ckpt = torch.load(args.resume, pickle_module=c)
+        return ckpt
 
 if __name__ == "__main__":
 
@@ -39,7 +63,8 @@ if __name__ == "__main__":
 
     # init model
     model = net.VGG16(args)
-    ckpt = torch.load(args.resume)
+    ckpt = my_torch_load(args.resume)
+
     model.load_state_dict(ckpt['state_dict'], strict=True)
     model = model.cuda()
 
