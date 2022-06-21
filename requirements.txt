@@ -1,5 +1,5 @@
 Cython==0.28.5
-numpy==1.15.1
+numpy==1.22.0
 opencv-contrib-python==3.4.3.18
 opencv-python==3.4.3.18
 Pillow==5.2.0
